@@ -30,6 +30,9 @@ class ListPage:
 
 _COUNT_RE = re.compile(r"Object and Directory Number is:\s*(\d+)")
 _DU_RE = re.compile(r"total object count:\s*(\d+)\s+total object sum size:\s*(\d+)")
+_LS_OBJECT_RE = re.compile(
+    r"^\s*\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+\S+\s+(\d+)\s+\S+\s+\S+\s+(oss://.+?)\s*$"
+)
 
 
 def split_uri(uri: str) -> tuple[str, str]:
@@ -87,6 +90,17 @@ def parse_du(text: str) -> tuple[int, int] | None:
     """(object count, total bytes) from `ossutil du`, or None when the summary line is missing."""
     match = _DU_RE.search(text)
     return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def parse_ls_usage(text: str) -> tuple[int, int] | None:
+    """(object count, total bytes) from recursive `ossutil ls` long-format output."""
+    objects = total_bytes = 0
+    for line in text.splitlines():
+        match = _LS_OBJECT_RE.match(line)
+        if match:
+            objects += 1
+            total_bytes += int(match.group(1))
+    return (objects, total_bytes) if objects else None
 
 
 def similar_names(missing: str, existing: list[str], *, cutoff: float = 0.85, limit: int = 3) -> list[str]:

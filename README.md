@@ -11,7 +11,7 @@ It is made for large uploads (tens or hundreds of GB) that take hours: you can p
 
 - **Dark Operations Console.** A focused dashboard with a navigation rail, live queue metrics, upload list, selected-job details, and transfer summary. The visual system uses a charcoal surface with lime accents while staying entirely inside the terminal.
 - **Login once, stay logged in.** Enter an AccessKey, region and either a bucket or an allowed prefix such as `oss://my-bucket/team/`. The app tests that exact location (read-only), saves it as the workspace root, and keeps browsing and upload destinations inside that prefix. Log out any time with `L`.
-- **Upload files and complete folders recursively.** Folder uploads preserve the selected root folder, every nested directory, and relative file paths. Empty directories are represented by OSS directory markers. Pause/resume uses ossutil checkpoints, and retries use incremental update mode to skip files that are already current. Folder verification compares remote object count and total bytes.
+- **Upload files and complete folders recursively.** Folder uploads preserve the selected root folder, every nested directory, and relative file paths. Empty directories are represented by OSS directory markers. Pause/resume uses ossutil checkpoints, and retries use incremental update mode to skip files that are already current. Folder verification first uses `ossutil du` to compare remote object count and total bytes. If multipart-list permissions are missing, it automatically falls back to recursive `ossutil ls`, which only requires `oss:ListObjects`.
 - **Browse the bucket** (folders and files, paging, details) and pick the upload destination from the browser.
 - **Catches typos in the destination.** If the destination folder does not exist, the pre-flight dialog says so and suggests similar existing folders (for example `team-alpha-black` when you typed `team-alpah-black`).
 
@@ -71,7 +71,7 @@ On the first start you get the login screen. After that it goes straight to the 
 - Pause stops the ossutil process; resume starts it again with the same checkpoint folder. Files above 100 MiB continue from their checkpoint; smaller files are sent again from the start of that file.
 - Verification after upload checks that the object size matches and that a CRC64 is present. ossutil itself checks CRC64 while transferring; the local file's CRC64 is not recomputed and compared.
 - Uploads never pass `-f`, so ossutil decides what happens when the object already exists (this case has not been tested).
-- Some operations print an error about unfinished uploads when your RAM user lacks that permission; the app treats this as a warning.
+- Optional: attach the additional RAM policy in [`docs/ram-policy-folder-verification.json`](docs/ram-policy-folder-verification.json) to the RAM user if you want the full `du` verification path. It grants only the three verification list actions, scopes object listing to the `EGO/` prefix, and does not replace the user's existing upload policy. Without these extra permissions, the app still verifies folders through recursive `ls`.
 
 ## Uninstall
 

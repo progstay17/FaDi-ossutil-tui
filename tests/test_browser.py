@@ -1,7 +1,7 @@
 import pytest
 
 from ossutil_tui.browser import (
-    EntryKind, folder_of, normalize_dir_uri, parent_uri, parse_dir_listing, parse_du, similar_names, split_uri,
+    EntryKind, folder_of, normalize_dir_uri, parent_uri, parse_dir_listing, parse_du, parse_ls_usage, similar_names, split_uri,
 )
 
 PREFIX = "oss://b/data/"
@@ -77,6 +77,23 @@ def test_parse_du_with_real_format_and_missing_summary():
     )
     assert parse_du(text) == (60902, 14521495894902)
     assert parse_du("Error: AccessDenied") is None
+
+
+    
+def test_parse_recursive_ls_long_format_counts_objects_and_bytes():
+    text = (
+        "LastModifiedTime                    Size(B)  StorageClass   ETag                                    ObjectName\n"
+        "2026-11-06 15:00:00 +0800 CST           0      Standard   ABCD        oss://b/data/session/\n"
+        "2026-11-06 15:00:01 +0800 CST         600      Standard   EFGH        oss://b/data/session/a.mcap\n"
+        "2026-11-06 15:00:02 +0800 CST         400      Standard   IJKL        oss://b/data/session/b.mcap\n"
+        "Object Number is: 3\n"
+    )
+    assert parse_ls_usage(text) == (3, 1000)
+
+
+def test_parse_recursive_ls_returns_none_for_errors_or_empty_output():
+    assert parse_ls_usage("Error: AccessDenied") is None
+    assert parse_ls_usage("Object Number is: 0\n") is None
 
 
 def test_similar_names_catches_the_real_typo_and_ignores_unrelated():
