@@ -36,6 +36,12 @@ sys.stdout.write("5.500%, avg 1.000 MiB/s\r")
 sys.stdout.flush()
 """
 
+FAKE_EXPANDED_PROGRESS = r"""
+import sys
+sys.stdout.write("Total 660 objects,71.7 GiB, Upload... done:(108 objects,7.572 GiB,5 dirs), 10.825%, avg 20.463 MiB/s\r")
+sys.stdout.flush()
+"""
+
 
 def argv_for(code):
     return [sys.executable, "-c", code]
@@ -83,6 +89,13 @@ def test_progress_line_split_across_chunks_is_parsed_once_complete():
     runner = UploadRunner(on_progress=events.append)
     run(runner.run(argv_for(FAKE_SPLIT), total_bytes=1000))
     assert [e.percent for e in events] == [55.5]
+
+
+def test_runner_emits_progress_for_expanded_ossutil_summary():
+    events: list[ProgressEvent] = []
+    runner = UploadRunner(on_progress=events.append)
+    run(runner.run(argv_for(FAKE_EXPANDED_PROGRESS), total_bytes=1000))
+    assert [e.percent for e in events] == [10.825]
 
 
 def test_pause_without_running_process_is_harmless():
