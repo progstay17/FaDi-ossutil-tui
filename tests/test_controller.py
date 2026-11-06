@@ -364,11 +364,11 @@ def test_folder_verification_falls_back_to_recursive_ls_when_du_is_denied(tmp_pa
             return 1, "", "AccessDenied: ListMultipartUploads is not authorized"
         if argv[1] == "ls":
             return 0, (
-                "LastModifiedTime                    Size(B)  StorageClass   ETag                                    ObjectName\\n"
-                "2026-11-06 15:00:00 +0800 CST           0      Standard   ABCD        oss://bucket-sandbox/FaDi-spike/SESSION_001/\\n"
-                "2026-11-06 15:00:01 +0800 CST         600      Standard   EFGH        oss://bucket-sandbox/FaDi-spike/SESSION_001/a.mcap\\n"
-                "2026-11-06 15:00:02 +0800 CST         400      Standard   IJKL        oss://bucket-sandbox/FaDi-spike/SESSION_001/b.mcap\\n"
-                "Object Number is: 3\\n"
+                "LastModifiedTime                    Size(B)  StorageClass   ETag                                    ObjectName\n"
+                "2026-11-06 15:00:00 +0800 CST           0      Standard   ABCD        oss://bucket-sandbox/FaDi-spike/SESSION_001/\n"
+                "2026-11-06 15:00:01 +0800 CST         600      Standard   EFGH        oss://bucket-sandbox/FaDi-spike/SESSION_001/a.mcap\n"
+                "2026-11-06 15:00:02 +0800 CST         400      Standard   IJKL        oss://bucket-sandbox/FaDi-spike/SESSION_001/b.mcap\n"
+                "Object Number is: 3\n"
             ), ""
         return 0, "", ""
 
