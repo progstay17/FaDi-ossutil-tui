@@ -78,6 +78,19 @@ def test_parse_progress_takes_last_value_from_carriage_return_chunk():
     assert parse_progress(chunk) == 70.312
 
 
+def test_parse_progress_accepts_ossutil_summary_with_size_and_directory_fields():
+    line = "Total 660 objects,71.7 GiB, Upload... done:(108 objects,7.572 GiB,5 dirs), 10.825%, avg 20.463 MiB/s"
+    assert parse_progress(line) == 10.825
+
+
+def test_parse_progress_accepts_both_old_and_expanded_summaries_in_same_chunk():
+    chunk = (
+        "Upload... done:(0 objects), 5.000%, avg 1.000 MiB/s\r"
+        "Upload... done:(108 objects,7.572 GiB,5 dirs), 10.825%, avg 20.463 MiB/s"
+    )
+    assert parse_progress(chunk) == 10.825
+
+
 def test_parse_progress_returns_none_without_match():
     assert parse_progress("nothing useful here") is None
 
@@ -100,6 +113,7 @@ def test_parse_stat_extracts_size_and_crc64():
     assert stat["Content-Length"] == "1073741824"
     assert stat["X-Oss-Hash-Crc64ecma"] == "3534425600523290380"
     assert stat["X-Oss-Object-Type"] == "Multipart"
+
 
 def test_choose_part_size_keeps_preferred_when_within_limit():
     from ossutil_tui.ossutil import choose_part_size

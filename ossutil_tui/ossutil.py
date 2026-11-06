@@ -4,7 +4,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-PROGRESS_RE = re.compile(r"done:\(\d+ objects\),\s*([\d.]+)%")
+# ossutil 2.x includes object count, transferred size, and directory count
+# inside done:(...). Older versions / simpler output may only include objects.
+PROGRESS_RE = re.compile(r"done:\([^)]*\)\s*,\s*([\d.]+)\s*%", re.IGNORECASE)
 STAT_LINE_RE = re.compile(r"^\s*([A-Za-z0-9-]+)\s*:\s*(.+?)\s*$")
 
 MIN_PART_SIZE = 100 * 1024
@@ -65,9 +67,12 @@ class CpRequest:
 
 
 def parse_progress(text: str) -> float | None:
-    """Return the last percentage in a chunk of stdout, or None.
+    """Return the last percentage in a chunk of ossutil output, or None.
 
-    ossutil rewrites the same line with carriage returns, so the last match wins.
+    ossutil rewrites the same line with carriage returns. Its progress summary
+    can contain extra fields such as done:(108 objects,7.572 GiB,5 dirs), so
+    match the complete parenthesized payload rather than assuming it only
+    contains an object count. The last match wins for multi-update chunks.
     """
     matches = PROGRESS_RE.findall(text)
     return float(matches[-1]) if matches else None
