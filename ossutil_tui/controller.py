@@ -321,6 +321,11 @@ class JobController:
     # --- running -------------------------------------------------------
     async def run(self, job_id: str) -> None:
         job = self.get(job_id)
+        if self.default_root:
+            try:
+                self._assert_within_root(folder_of(job.destination))
+            except (ValueError, JobError) as exc:
+                raise JobError(f"queued destination is outside the permitted prefix: {self.default_root}") from exc
         if job.status not in (JobStatus.PENDING, JobStatus.PAUSED, JobStatus.FAILED):
             raise JobError(f"cannot start a job that is {job.status.value}")
         if self._runners:
