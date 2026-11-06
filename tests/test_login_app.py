@@ -78,7 +78,7 @@ def test_successful_login_saves_profile_and_opens_main_screen(tmp_path):
             assert await wait_for(pilot, lambda: isinstance(app.screen, MainScreen))
             await pilot.pause(0.6)
             assert context.logged_in and context.store.exists()
-            assert calls[0]["region"] == "ap-southeast-5" and calls[0]["bucket"] == "bucket-sandbox"
+            assert calls[0]["region"] == "ap-southeast-5" and calls[0]["bucket"] == "oss://bucket-sandbox/"
             assert calls[0]["secret"] == SECRET
             assert "bucket-sandbox" in app.screen.last_header_text
             assert "FAKE...5678" in app.screen.last_header_text
