@@ -100,3 +100,33 @@ def test_runner_emits_progress_for_expanded_ossutil_summary():
 
 def test_pause_without_running_process_is_harmless():
     UploadRunner().pause()
+
+
+FAKE_NO_OUTPUT_SUCCESS = r"""
+import sys, time
+time.sleep(0.55)
+sys.stdout.write("Success: Total 1 file, size 1000 B, Upload done:(1 objects, 1000 B)\\n")
+sys.stdout.flush()
+"""
+
+
+def test_runner_detects_real_inactivity():
+    runner = UploadRunner(stall_timeout=0.2)
+    result = run(runner.run(argv_for(FAKE_SLOW), total_bytes=1000))
+    assert result.stalled is True
+    assert result.success is False
+    assert result.paused is False
+
+
+def test_checkpoint_activity_resets_stall_watchdog():
+    async def scenario():
+        runner = UploadRunner(stall_timeout=0.25)
+        task = asyncio.create_task(runner.run(argv_for(FAKE_NO_OUTPUT_SUCCESS), total_bytes=1000))
+        for _ in range(8):
+            await asyncio.sleep(0.08)
+            runner.notify_activity()
+        return await asyncio.wait_for(task, timeout=3)
+
+    result = asyncio.run(scenario())
+    assert result.stalled is False
+    assert result.success is True

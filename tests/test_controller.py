@@ -242,6 +242,34 @@ def test_resume_after_pause_completes(tmp_path):
     run(controller.run(job.id))
     assert job.status is JobStatus.VERIFIED
 
+
+def test_elapsed_time_is_periodically_persisted_and_survives_restart(tmp_path):
+    from ossutil_tui.runner import RunResult
+
+    controller = make_controller(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+
+    class WaitingRunner:
+        async def run(self, _argv, _total_bytes):
+            await asyncio.sleep(1.2)
+            return RunResult(None, False, True, "", "")
+
+    controller._runner_factory = lambda _callback: WaitingRunner()
+
+    async def scenario():
+        task = asyncio.create_task(controller.run(job.id))
+        await asyncio.sleep(1.1)
+        saved = json.loads((tmp_path / "q.json").read_text(encoding="utf-8"))
+        assert saved["jobs"][0]["elapsed_seconds"] >= 1.0
+        await task
+
+    run(scenario(), timeout=10)
+    assert job.status is JobStatus.PAUSED
+    assert job.elapsed_seconds >= 1.1
+    restarted = make_controller(tmp_path)
+    assert restarted.jobs[0].status is JobStatus.PAUSED
+    assert restarted.jobs[0].elapsed_seconds >= 1.0
+
 FAKE_ENV = r"""
 import os, sys
 if os.environ.get("OSS_ACCESS_KEY_ID") == "K" and os.environ.get("OSS_ACCESS_KEY_SECRET") == "S":
@@ -439,8 +467,10 @@ def test_discard_checkpoint_removes_only_selected_job_directory(tmp_path):
     (second_dir / "state").write_text("second")
     first.status = JobStatus.PAUSED
     first.resumable = True
+    first.elapsed_seconds = 55.0
 
     assert controller.discard_checkpoint(first.id) is False
+    assert first.elapsed_seconds == 0.0
     assert not first_dir.exists()
     assert (second_dir / "state").read_text() == "second"
     assert first.status is JobStatus.PENDING and not first.resumable
@@ -460,3 +490,42 @@ def test_discard_legacy_checkpoint_preserves_shared_directory(tmp_path):
     assert (shared / "legacy-state").read_text() == "keep"
     assert job.checkpoint_dir == str(shared / job.id)
     assert job.status is JobStatus.PENDING and not job.resumable
+
+
+def test_stalled_upload_retries_with_same_checkpoint(tmp_path):
+    from pathlib import Path
+    from ossutil_tui.runner import RunResult
+
+    controller = make_controller(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+    checkpoint = controller._job_checkpoint_dir(job)
+    marker = checkpoint / "multipart.ucp"
+
+    class RetryRunner:
+        calls = 0
+
+        def set_activity_callback(self, callback):
+            self.activity_callback = callback
+
+        def notify_activity(self):
+            if getattr(self, "activity_callback", None):
+                self.activity_callback()
+
+        async def run(self, _argv, _total_bytes):
+            self.calls += 1
+            if self.calls == 1:
+                checkpoint.mkdir(parents=True, exist_ok=True)
+                marker.write_text("checkpoint", encoding="utf-8")
+                return RunResult(1, False, False, "", "", stalled=True)
+            assert marker.read_text(encoding="utf-8") == "checkpoint"
+            return RunResult(0, True, False, "Success: upload complete", "")
+
+    runner = RetryRunner()
+    controller._runner_factory = lambda _callback: runner
+    run(controller.run(job.id), timeout=10)
+
+    assert runner.calls == 2
+    assert job.status is JobStatus.VERIFIED
+    assert marker.exists()
+    # Elapsed time spans both attempts and the retry backoff interval.
+    assert job.elapsed_seconds >= 1.5
