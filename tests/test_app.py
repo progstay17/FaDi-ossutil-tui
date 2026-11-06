@@ -268,3 +268,26 @@ def test_removing_one_of_several_jobs_keeps_the_others_and_a_valid_selection(tmp
             assert "FaDi_b.bin" in app.screen.last_detail_text
 
     run(scenario())
+
+
+def test_add_dialog_accepts_a_local_folder(tmp_path):
+    app, controller = make_app(tmp_path)
+    source = tmp_path / "SESSION_001"
+    (source / "CAMERA_01" / "VIDEO").mkdir(parents=True)
+    (source / "CAMERA_01" / "VIDEO" / "001.mcap").write_bytes(b"x" * 50)
+
+    async def scenario():
+        async with app.run_test(size=SIZE) as pilot:
+            await pilot.pause()
+            await pilot.press("a")
+            await pilot.pause()
+            assert isinstance(app.screen, AddJobScreen)
+            app.screen.query_one("#source", Input).value = str(source)
+            app.screen.query_one("#destination", Input).value = DEST
+            app.screen.query_one("#add", Button).press()
+            await pilot.pause()
+            assert controller.jobs[0].is_folder
+            assert controller.jobs[0].object_uri == DEST + "SESSION_001/"
+            assert controller.jobs[0].folder_files == 1
+
+    run(scenario())

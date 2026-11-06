@@ -78,8 +78,8 @@ class AddJobScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="add-dialog"):
             yield Static(Text("ADD UPLOAD", style="bold #35C6D8"))
-            yield Static("Source file (local path)")
-            yield Input(placeholder=r"C:\Data\file.tar", id="source")
+            yield Static("Source file or folder (local path)")
+            yield Input(placeholder=r"C:\Data\SESSION_001", id="source")
             yield Static("Destination (end with / to keep the file name)")
             with Horizontal(id="dest-row"):
                 yield Input(placeholder="oss://bucket/prefix/", id="destination")
@@ -665,7 +665,10 @@ class MainScreen(Screen):
     async def _check_destination(self, job_id: str, screen: PreflightScreen) -> None:
         controller = self.app.controller
         try:
-            warnings = await controller.destination_warnings(controller.get(job_id).destination)
+            job = controller.get(job_id)
+            warnings = await controller.destination_warnings(job.object_uri if job.is_folder else job.destination)
+            if job.is_folder and await controller.prefix_exists(job.object_uri):
+                warnings.append("The target folder already contains objects. Existing objects will not be forcibly overwritten.")
         except Exception as exc:  # the check is advisory; never leave the dialog stuck
             warnings = [f"Could not check the destination folder: {exc}"]
         screen.set_check_result(warnings)

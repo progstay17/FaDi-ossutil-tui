@@ -289,3 +289,106 @@ def test_without_credentials_the_process_fails_and_job_is_failed(tmp_path):
     job = controller.add_job(str(make_source(tmp_path)), DEST)
     run(controller.run(job.id))
     assert job.status is JobStatus.FAILED and "credentials missing" in job.message
+
+
+def test_add_folder_job_scans_tree_and_preserves_root_name(tmp_path):
+    controller = make_controller(tmp_path)
+    source = tmp_path / "SESSION_001"
+    (source / "CAMERA_01" / "VIDEO").mkdir(parents=True)
+    (source / "CAMERA_02" / "EMPTY").mkdir(parents=True)
+    (source / "CAMERA_01" / "VIDEO" / "001.mcap").write_bytes(b"x" * 1200)
+    (source / "root.txt").write_bytes(b"root")
+
+    job = controller.add_job(str(source), DEST)
+
+    assert job.is_folder
+    assert job.name == "SESSION_001"
+    assert job.object_uri == DEST + "SESSION_001/"
+    assert job.folder_files == 2
+    assert job.folder_dirs == 4
+    assert job.size == 1204
+    restored = JobStore(controller.settings.state_file).load()[0]
+    assert restored.is_folder and restored.folder_files == 2 and restored.folder_dirs == 4
+
+
+def test_folder_argv_is_recursive_resumable_and_update_safe(tmp_path):
+    from ossutil_tui.controller import default_argv
+
+    controller = make_controller(tmp_path)
+    source = tmp_path / "SESSION_001"
+    source.mkdir()
+    job = controller.add_job(str(source), DEST)
+    argv = default_argv(controller.settings, job, controller.settings.part_size)
+
+    assert argv[1] == "cp"
+    assert argv[2].endswith("SESSION_001" + __import__("os").sep)
+    assert argv[3] == DEST + "SESSION_001/"
+    assert "-r" in argv
+    assert "-u" in argv
+    assert "--checkpoint-dir" in argv
+
+
+def test_folder_upload_verifies_total_size_and_object_count(tmp_path):
+    source = tmp_path / "SESSION_001"
+    (source / "CAMERA_01" / "VIDEO").mkdir(parents=True)
+    (source / "CAMERA_02" / "EMPTY").mkdir(parents=True)
+    (source / "CAMERA_01" / "VIDEO" / "001.mcap").write_bytes(b"x" * 1000)
+    calls = []
+
+    async def fake_exec(argv, env):
+        calls.append(argv)
+        if argv[1] == "du":
+            return 0, "total object count: 6 total object sum size: 1000\n", ""
+        return 0, "", ""
+
+    controller = make_controller(tmp_path, code=FAKE_OK, exec_fn=fake_exec)
+    job = controller.add_job(str(source), DEST)
+    run(controller.run(job.id))
+
+    assert job.status is JobStatus.VERIFIED
+    assert "1 file(s)" in job.message
+    assert any(call[1] == "du" for call in calls)
+
+
+def test_empty_folder_upload_creates_and_verifies_marker(tmp_path):
+    source = tmp_path / "EMPTY_SESSION"
+    source.mkdir()
+    calls = []
+
+    async def fake_exec(argv, env):
+        calls.append(argv)
+        if argv[1] == "du":
+            return 0, "total object count: 1 total object sum size: 0\n", ""
+        return 0, "", ""
+
+    controller = make_controller(tmp_path, code=FAKE_OK, exec_fn=fake_exec)
+    job = controller.add_job(str(source), DEST)
+    run(controller.run(job.id))
+
+    assert job.is_folder and job.folder_files == 0 and job.size == 0
+    assert job.status is JobStatus.VERIFIED
+    assert "0 file(s)" in job.message
+
+
+
+def test_folder_upload_creates_root_marker_when_missing(tmp_path):
+    source = tmp_path / "EMPTY_SESSION"
+    source.mkdir()
+    calls = []
+
+    async def missing_marker(_settings, _uri):
+        raise RuntimeError("NoSuchKey")
+
+    async def fake_exec(argv, env):
+        calls.append(argv)
+        if argv[1] == "du":
+            return 0, "total object count: 1 total object sum size: 0\n", ""
+        return 0, "", ""
+
+    controller = make_controller(tmp_path, code=FAKE_OK, exec_fn=fake_exec)
+    controller._stat_fn = missing_marker
+    job = controller.add_job(str(source), DEST)
+    run(controller.run(job.id))
+
+    assert job.status is JobStatus.VERIFIED
+    assert any(call[1] == "mkdir" and call[2] == job.object_uri for call in calls)

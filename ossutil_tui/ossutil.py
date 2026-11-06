@@ -33,6 +33,8 @@ class CpRequest:
     checkpoint_dir: str
     part_size: int
     overwrite: bool = False
+    recursive: bool = False
+    update: bool = False
 
     def __post_init__(self) -> None:
         if not self.destination.startswith("oss://"):
@@ -53,6 +55,10 @@ class CpRequest:
             "--part-size", str(self.part_size),
             "--output-format", "json",
         ]
+        if self.recursive:
+            args.append("-r")
+        if self.update:
+            args.append("-u")
         if self.overwrite:
             args.append("-f")
         return args
@@ -78,6 +84,7 @@ def parse_stat(text: str) -> dict[str, str]:
         if match:
             result[match.group(1)] = match.group(2)
     return result
+
 
 MAX_PARTS = 10_000
 _MIB = 1024 * 1024

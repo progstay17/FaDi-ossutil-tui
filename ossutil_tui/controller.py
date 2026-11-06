@@ -15,7 +15,7 @@ from .browser import (
     EntryKind, ListPage, folder_of, normalize_dir_uri, parse_dir_listing, parse_du, similar_names, split_uri,
 )
 from .connection import classify_failure, run_command
-from .jobs import Job, JobStatus, JobStore, LiveStats, new_job
+from .jobs import Job, JobStatus, JobStore, LiveStats, new_job, new_folder_job
 from .ossutil import CpRequest, choose_part_size, normalize_region, parse_stat
 from .runner import ProgressEvent, RunResult, UploadRunner
 from .settings import Settings
@@ -41,6 +41,9 @@ class PreflightInfo:
     checkpoint_dir: str
     command: str
     warnings: list[str] = field(default_factory=list)
+    is_folder: bool = False
+    folder_files: int = 0
+    folder_dirs: int = 0
 
 
 @dataclass(frozen=True)
@@ -55,12 +58,14 @@ class PrefixCheck:
 def default_argv(settings: Settings, job: Job, part_size: int) -> list[str]:
     return CpRequest(
         exe=settings.exe,
-        source=job.source,
-        destination=job.destination,
+        source=job.source + os.sep if job.is_folder else job.source,
+        destination=job.object_uri if job.is_folder else job.destination,
         config_file=settings.config_file,
         region=settings.region,
         checkpoint_dir=settings.checkpoint_dir,
         part_size=part_size,
+        recursive=job.is_folder,
+        update=job.is_folder,
     ).argv()
 
 
@@ -161,24 +166,55 @@ class JobController:
     def add_job(self, source: str, destination: str) -> Job:
         source = source.strip().strip('"')
         destination = destination.strip()
-        path = Path(source)
-        if not path.is_file():
-            raise JobError(f"source file not found: {source}")
+        path = Path(source).expanduser()
+        if not path.exists():
+            raise JobError(f"source file not found (or folder not found): {source}")
         if not _DEST_RE.match(destination):
             raise JobError("destination must look like oss://bucket/prefix/ (lowercase bucket name)")
-        root = self._dir(self.default_root) if self.default_root else ""
-        if root:
+        if self.default_root:
             try:
                 self._assert_within_root(folder_of(destination))
-            except ValueError as exc:
-                raise JobError(f"Not a valid oss:// address: {destination!r}") from exc
-        size = path.stat().st_size
-        if size <= 0:
-            raise JobError("source file is empty")
-        candidate = new_job(str(path), destination, size)
+            except (ValueError, JobError) as exc:
+                raise JobError(f"destination is outside the permitted prefix: {self.default_root}") from exc
+
+        if path.is_symlink():
+            raise JobError("symbolic links cannot be uploaded as a source")
+        if path.is_dir():
+            size = files = directories = 0
+            try:
+                for current, dirnames, filenames in os.walk(path, followlinks=False):
+                    current_path = Path(current)
+                    safe_dirs = []
+                    for dirname in dirnames:
+                        child = current_path / dirname
+                        if child.is_symlink():
+                            raise JobError(f"symbolic link directory is not supported: {child}")
+                        safe_dirs.append(dirname)
+                        directories += 1
+                    dirnames[:] = safe_dirs
+                    for filename in filenames:
+                        child = current_path / filename
+                        if child.is_symlink():
+                            raise JobError(f"symbolic link file is not supported: {child}")
+                        if child.is_file():
+                            size += child.stat().st_size
+                            files += 1
+            except OSError as exc:
+                raise JobError(f"cannot scan source folder: {exc}") from exc
+            candidate = new_folder_job(str(path.resolve()), destination, size, files, directories)
+            if files == 0 and directories == 0:
+                candidate.message = "Empty folder; only the directory marker will be created"
+        elif path.is_file():
+            size = path.stat().st_size
+            if size <= 0:
+                raise JobError("source file is empty")
+            candidate = new_job(str(path.resolve()), destination, size)
+        else:
+            raise JobError(f"source is not a regular file or folder: {source}")
+
         for existing in self.jobs:
             if existing.source == candidate.source and existing.object_uri == candidate.object_uri:
-                raise JobError("this file is already queued for the same destination")
+                raise JobError("this file or folder is already queued for the same destination")
         self.jobs.append(candidate)
         self._persist()
         self._log(candidate, f"added {candidate.source} -> {candidate.object_uri} ({size} B)")
@@ -215,6 +251,9 @@ class JobController:
             checkpoint_dir=self.settings.checkpoint_dir,
             command=subprocess.list2cmdline(argv),
             warnings=warnings,
+            is_folder=job.is_folder,
+            folder_files=job.folder_files,
+            folder_dirs=job.folder_dirs,
         )
 
     # --- browsing (read-only) ------------------------------------------
@@ -331,6 +370,9 @@ class JobController:
         if self._runners:
             raise JobError("another upload is already running (M1 runs one at a time)")
 
+        if job.is_folder:
+            await self._ensure_folder_marker(job)
+
         part_size = choose_part_size(job.size, self.settings.part_size)
         argv = self._argv_fn(self.settings, job, part_size)
         live = LiveStats()
@@ -353,7 +395,7 @@ class JobController:
         result: RunResult | None = None
         start_error = ""
         try:
-            result = await runner.run(argv, job.size)
+            result = await runner.run(argv, max(job.size, 1))
         except OSError as exc:
             start_error = f"cannot start ossutil: {exc}"
         finally:
@@ -400,21 +442,62 @@ class JobController:
             raise JobError(f"nothing to verify for a job that is {job.status.value}")
         await self._verify(job)
 
+    async def _ensure_folder_marker(self, job: Job) -> None:
+        """Create the selected root folder marker once; nested markers come from cp -r."""
+        try:
+            await self._stat_fn(self.settings, job.object_uri)
+            return
+        except (RuntimeError, OSError):
+            pass
+        code, out, err = await self._run(self._ossutil_args("mkdir", job.object_uri))
+        if code != 0:
+            # A previous interrupted attempt may already have created this marker.
+            try:
+                await self._stat_fn(self.settings, job.object_uri)
+                return
+            except (RuntimeError, OSError):
+                detail = (err or out).strip()[-300:]
+                raise JobError(detail or f"ossutil mkdir exited with code {code}")
+
     async def _verify(self, job: Job) -> None:
         job.status = JobStatus.VERIFYING
         self._persist()
-        try:
-            text = await self._stat_fn(self.settings, job.object_uri)
-        except (RuntimeError, OSError) as exc:
-            job.status = JobStatus.VERIFY_FAILED
-            job.message = f"stat failed: {exc}"
+        if job.is_folder:
+            try:
+                code, out, err = await self._run(self._ossutil_args("du", job.object_uri))
+                usage = parse_du(out)
+                if usage is None or code not in (0, 1):
+                    raise RuntimeError((err or out).strip()[-300:] or "could not read remote folder totals")
+                objects, total_bytes = usage
+                expected_objects = job.folder_files + job.folder_dirs + 1
+                if total_bytes != job.size:
+                    job.status = JobStatus.VERIFY_FAILED
+                    job.message = f"size mismatch: local {job.size} B, remote {total_bytes} B"
+                elif objects != expected_objects:
+                    job.status = JobStatus.VERIFY_FAILED
+                    job.message = f"object count mismatch: expected {expected_objects}, remote {objects}"
+                else:
+                    job.status = JobStatus.VERIFIED
+                    job.message = (
+                        f"verified {job.folder_files} file(s), {job.folder_dirs + 1} folder marker(s), "
+                        f"{total_bytes} B"
+                    )
+            except (RuntimeError, OSError, JobError) as exc:
+                job.status = JobStatus.VERIFY_FAILED
+                job.message = f"folder verification failed: {exc}"
         else:
-            verdict = verify_remote(job.size, parse_stat(text))
-            job.remote_crc64 = verdict.remote_crc64
-            job.message = verdict.reason
-            job.status = (
-                JobStatus.VERIFIED if verdict.status is VerifyStatus.VERIFIED else JobStatus.VERIFY_FAILED
-            )
+            try:
+                text = await self._stat_fn(self.settings, job.object_uri)
+            except (RuntimeError, OSError) as exc:
+                job.status = JobStatus.VERIFY_FAILED
+                job.message = f"stat failed: {exc}"
+            else:
+                verdict = verify_remote(job.size, parse_stat(text))
+                job.remote_crc64 = verdict.remote_crc64
+                job.message = verdict.reason
+                job.status = (
+                    JobStatus.VERIFIED if verdict.status is VerifyStatus.VERIFIED else JobStatus.VERIFY_FAILED
+                )
         self._log(job, f"{job.status.value}: {job.message}")
         self._persist()
 

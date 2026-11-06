@@ -3,7 +3,7 @@
 A terminal UI for **Alibaba Cloud OSS**, built on top of [ossutil 2.x](https://www.alibabacloud.com/help/en/oss/developer-reference/ossutil-overview).
 It is made for large uploads (tens or hundreds of GB) that take hours: you can pause and resume, the queue survives a crash, and every upload is verified.
 
-> Status: early (v0.2.0), Windows only. Not affiliated with Alibaba Cloud.
+> Status: v0.3.0, Windows only. Not affiliated with Alibaba Cloud.
 
 [Bahasa Indonesia](README.id.md)
 
@@ -11,11 +11,11 @@ It is made for large uploads (tens or hundreds of GB) that take hours: you can p
 
 - **Dark Operations Console.** A focused dashboard with a navigation rail, live queue metrics, upload list, selected-job details, and transfer summary. The visual system uses a charcoal surface with lime accents while staying entirely inside the terminal.
 - **Login once, stay logged in.** Enter an AccessKey, region and either a bucket or an allowed prefix such as `oss://my-bucket/team/`. The app tests that exact location (read-only), saves it as the workspace root, and keeps browsing and upload destinations inside that prefix. Log out any time with `L`.
-- **Upload large single files** with pause, resume (also after the app or PC stops), live speed and ETA, and a check after upload.
+- **Upload files and complete folders recursively.** Folder uploads preserve the selected root folder, every nested directory, and relative file paths. Empty directories are represented by OSS directory markers. Pause/resume uses ossutil checkpoints, and retries use incremental update mode to skip files that are already current. Folder verification compares remote object count and total bytes.
 - **Browse the bucket** (folders and files, paging, details) and pick the upload destination from the browser.
 - **Catches typos in the destination.** If the destination folder does not exist, the pre-flight dialog says so and suggests similar existing folders (for example `team-alpha-black` when you typed `team-alpah-black`).
 
-Not yet: folder or batch upload, delete / rename / move, several profiles, other operating systems.
+Not yet: batch selection of multiple unrelated files, delete / rename / move, several profiles, other operating systems.
 
 ## Requirements
 
