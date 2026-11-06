@@ -60,13 +60,18 @@ class Job:
     resumable: bool = False
     remote_crc64: str | None = None
     message: str = ""
+    is_folder: bool = False
+    folder_files: int = 0
+    folder_dirs: int = 0
 
     @property
     def name(self) -> str:
-        return re.split(r"[\\/]", self.source)[-1]
+        return self.source.rstrip("\\/").replace("\\", "/").split("/")[-1]
 
     @property
     def object_uri(self) -> str:
+        if self.is_folder:
+            return f"{self.destination}{self.name}/" if self.destination.endswith("/") else f"{self.destination}/{self.name}/"
         return self.destination + self.name if self.destination.endswith("/") else self.destination
 
     @property
@@ -90,6 +95,9 @@ class Job:
             "resumable": self.resumable,
             "remote_crc64": self.remote_crc64,
             "message": self.message,
+            "is_folder": self.is_folder,
+            "folder_files": self.folder_files,
+            "folder_dirs": self.folder_dirs,
         }
 
     @classmethod
@@ -110,11 +118,26 @@ class Job:
             resumable=bool(raw.get("resumable", False)),
             remote_crc64=raw.get("remote_crc64"),
             message=message,
+            is_folder=bool(raw.get("is_folder", False)),
+            folder_files=int(raw.get("folder_files", 0)),
+            folder_dirs=int(raw.get("folder_dirs", 0)),
         )
 
 
 def new_job(source: str, destination: str, size: int) -> Job:
     return Job(id=uuid.uuid4().hex[:8], source=source, destination=destination, size=size)
+
+
+def new_folder_job(source: str, destination: str, size: int, files: int, directories: int) -> Job:
+    return Job(
+        id=uuid.uuid4().hex[:8],
+        source=source,
+        destination=destination,
+        size=size,
+        is_folder=True,
+        folder_files=files,
+        folder_dirs=directories,
+    )
 
 
 def recover_after_crash(job: Job) -> bool:
