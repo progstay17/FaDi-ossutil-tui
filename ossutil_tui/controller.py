@@ -165,6 +165,21 @@ class JobController:
         root = self._job_checkpoint_dir(job)
         return root.is_dir() and any(p.is_file() for p in root.rglob("*"))
 
+    def _checkpoint_signature(self, job: Job) -> tuple[int, int]:
+        """Return (file count, newest mtime) for detecting active multipart writes."""
+        root = self._job_checkpoint_dir(job)
+        count = 0
+        newest = 0
+        try:
+            for path in root.rglob("*"):
+                if path.is_file():
+                    stat = path.stat()
+                    count += 1
+                    newest = max(newest, stat.st_mtime_ns)
+        except OSError:
+            pass
+        return count, newest
+
     # --- queue management ---------------------------------------------
     def add_job(self, source: str, destination: str) -> Job:
         source = source.strip().strip('"')
@@ -419,30 +434,63 @@ class JobController:
 
         part_size = choose_part_size(job.size, self.settings.part_size)
         argv = self._argv_fn(self.settings, job, part_size)
-        live = LiveStats()
+        live = LiveStats(last_activity=self._clock())
         self.live[job.id] = live
+
+        def on_activity() -> None:
+            live.last_activity = self._clock()
+            self._changed()
 
         def on_progress(event: ProgressEvent) -> None:
             job.percent = event.percent
             live.speed = event.speed
             live.eta = event.eta_seconds
             live.last_event = self._clock()
+            live.last_activity = live.last_event
             self._changed()
 
         runner = self._runner_factory(on_progress)
+        set_activity_callback = getattr(runner, "set_activity_callback", None)
+        if callable(set_activity_callback):
+            set_activity_callback(on_activity)
         self._runners[job.id] = runner
         job.status = JobStatus.UPLOADING
         job.message = ""
         self._persist()
         self._log(job, "upload started")
 
+        async def watch_checkpoint_activity() -> None:
+            previous = self._checkpoint_signature(job)
+            while True:
+                await asyncio.sleep(2.0)
+                current = self._checkpoint_signature(job)
+                if current != previous:
+                    previous = current
+                    notify = getattr(runner, "notify_activity", None)
+                    if callable(notify):
+                        notify()
+                    else:
+                        on_activity()
+
+        activity_task = asyncio.create_task(watch_checkpoint_activity())
         result: RunResult | None = None
         start_error = ""
         try:
-            result = await runner.run(argv, max(job.size, 1))
+            # A stalled attempt is restarted with the same checkpoint. Never discard
+            # multipart state; ossutil decides which parts still need uploading.
+            for attempt in range(5):
+                result = await runner.run(argv, max(job.size, 1))
+                if not getattr(result, "stalled", False) or attempt == 4:
+                    break
+                job.message = f"Connection inactive; retrying from checkpoint ({attempt + 1}/4)"
+                self._persist()
+                self._changed()
+                await asyncio.sleep(min(2 ** (attempt + 1), 30))
         except OSError as exc:
             start_error = f"cannot start ossutil: {exc}"
         finally:
+            activity_task.cancel()
+            await asyncio.gather(activity_task, return_exceptions=True)
             self._runners.pop(job.id, None)
 
         if result is None:
@@ -464,9 +512,13 @@ class JobController:
             job.status = JobStatus.FAILED
             job.resumable = self._has_checkpoint(job)
             job.message = (
-                _last_meaningful_line(result.stderr_text)
-                or _last_meaningful_line(result.stdout_tail)
-                or f"ossutil exited with code {result.exit_code}"
+                "Upload inactive after 5 attempts; checkpoint preserved. Resume to retry."
+                if getattr(result, "stalled", False)
+                else (
+                    _last_meaningful_line(result.stderr_text)
+                    or _last_meaningful_line(result.stdout_tail)
+                    or f"ossutil exited with code {result.exit_code}"
+                )
             )
             self._log(job, f"failed (exit {result.exit_code}): {job.message}")
         self._persist()
