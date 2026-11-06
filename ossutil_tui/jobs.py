@@ -48,6 +48,7 @@ class LiveStats:
     eta: float | None = None
     last_event: float | None = None
     last_activity: float | None = None
+    started_at: float | None = None
 
 
 @dataclass
@@ -65,6 +66,7 @@ class Job:
     folder_files: int = 0
     folder_dirs: int = 0
     # None marks a legacy job that still uses the old shared checkpoint directory.
+    elapsed_seconds: float = 0.0
     checkpoint_dir: str | None = None
 
     @property
@@ -101,6 +103,7 @@ class Job:
             "is_folder": self.is_folder,
             "folder_files": self.folder_files,
             "folder_dirs": self.folder_dirs,
+            "elapsed_seconds": self.elapsed_seconds,
             "checkpoint_dir": self.checkpoint_dir,
         }
 
@@ -125,6 +128,7 @@ class Job:
             is_folder=bool(raw.get("is_folder", False)),
             folder_files=int(raw.get("folder_files", 0)),
             folder_dirs=int(raw.get("folder_dirs", 0)),
+            elapsed_seconds=max(0.0, float(raw.get("elapsed_seconds", 0.0))),
             checkpoint_dir=(str(raw["checkpoint_dir"]) if raw.get("checkpoint_dir") else None),
         )
 
