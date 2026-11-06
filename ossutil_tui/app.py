@@ -555,6 +555,11 @@ class MainScreen(Screen):
         return next((job for job in self.app.controller.jobs if job.id == wanted), None)
 
     def refresh_view(self) -> None:
+        # The periodic refresh timer can fire once more while the login screen is
+        # replacing this screen during logout. The session context is intentionally
+        # cleared at that point, so do not dereference settings/controller here.
+        if not self.app.context.logged_in:
+            return
         settings: Settings = self.app.settings
         controller: JobController = self.app.controller
         header = Text()
