@@ -3,7 +3,7 @@
 Antarmuka terminal (TUI) untuk **Alibaba Cloud OSS** di atas [ossutil 2.x](https://www.alibabacloud.com/help/en/oss/developer-reference/ossutil-overview).
 Dibuat untuk upload besar (puluhan sampai ratusan GB) yang memakan waktu berjam-jam: bisa dijeda dan dilanjutkan, antrean tetap ada setelah crash, dan setiap upload diverifikasi.
 
-> Status: awal (v0.2.0), hanya Windows. Tidak berafiliasi dengan Alibaba Cloud.
+> Status: v0.3.0, hanya Windows. Tidak berafiliasi dengan Alibaba Cloud.
 
 [English](README.md)
 
@@ -11,11 +11,11 @@ Dibuat untuk upload besar (puluhan sampai ratusan GB) yang memakan waktu berjam-
 
 - **Dark Operations Console.** Dashboard dengan navigasi samping, metrik antrean langsung, daftar upload, detail pekerjaan terpilih, dan ringkasan transfer. Tema charcoal dengan aksen lime, tetap sepenuhnya berjalan di terminal.
 - **Login sekali, tetap masuk.** Isi AccessKey, region, dan bucket atau prefix yang diizinkan, misalnya `oss://nama-bucket/EGO/`. Aplikasi mengetes lokasi tersebut (hanya-baca), menjadikannya root workspace, dan membatasi browser serta tujuan upload agar tetap di dalam prefix itu. Logout kapan saja dengan `L`.
-- **Upload file besar** dengan jeda, lanjut (juga setelah aplikasi atau PC berhenti), kecepatan dan ETA langsung, serta pemeriksaan setelah upload.
+- **Upload file dan folder secara rekursif.** Upload folder mempertahankan nama folder utama, semua subfolder, dan path relatif setiap file. Folder kosong juga dibuat sebagai directory marker di OSS. Pause/resume memakai checkpoint ossutil, sedangkan percobaan ulang memakai mode incremental agar file yang sudah sesuai tidak dikirim ulang. Verifikasi folder membandingkan jumlah objek dan total ukuran di OSS.
 - **Menjelajah bucket** (folder dan file, paging, detail) dan memilih tujuan upload dari browser.
 - **Menangkap salah ketik di tujuan.** Kalau folder tujuan belum ada, dialog pre-flight memberi tahu dan menyarankan folder mirip yang sudah ada (misalnya `team-alpha-black` ketika kamu mengetik `team-alpah-black`).
 
-Belum ada: upload folder atau batch, hapus / ganti nama / pindah, beberapa profil, sistem operasi lain.
+Belum ada: memilih banyak file terpisah sekaligus, hapus / ganti nama / pindah, beberapa profil, sistem operasi lain.
 
 ## Kebutuhan
 
