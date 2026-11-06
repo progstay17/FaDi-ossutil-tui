@@ -334,8 +334,9 @@ class BrowserScreen(ModalScreen[str | None]):
 
     def action_up(self) -> None:
         parent = parent_uri(self.current_uri)
-        if parent is None:
-            self._set_status("Already at the bucket root.")
+        root = self._controller.default_root
+        if parent is None or (root and not parent.startswith(normalize_dir_uri(root))):
+            self._set_status("Already at the permitted prefix root.")
         else:
             self._navigate(parent)
 
@@ -372,7 +373,7 @@ class LoginScreen(Screen):
             yield Input(placeholder="AccessKey Secret (stored encrypted)", password=True, id="login-secret")
             yield Input(value=self._defaults.region, placeholder="ap-southeast-5", id="login-region")
             yield Input(
-                value=self._defaults.bucket, placeholder="bucket-name or oss://bucket/prefix/", id="login-bucket"
+                value=self._defaults.bucket, placeholder="bucket-name or oss://bucket/allowed-prefix/", id="login-bucket"
             )
             yield Static(Text(self._notice, style="#F2B84B"), id="login-status")
             with Horizontal(id="dialog-buttons"):
@@ -431,7 +432,7 @@ class LoginScreen(Screen):
                 exe=profile.exe,
                 config_file=context.ensure_empty_config(),
                 region=profile.region,
-                bucket=profile.bucket,
+                bucket=profile.root_uri,
                 access_key_id=profile.access_key_id,
                 secret=check.secret,
             )
