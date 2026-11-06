@@ -21,7 +21,7 @@ Belum ada: upload folder atau batch, hapus / ganti nama / pindah, beberapa profi
 
 - Windows 10 atau 11 (kredensial dilindungi dengan Windows DPAPI)
 - Python 3.11 atau lebih baru (dikembangkan dan diuji dengan 3.14)
-- ossutil 2.x (installer bisa mengunduh 2.4.0 dan memverifikasi SHA-256-nya)
+- ossutil 2.x (diunduh dan diverifikasi SHA-256 secara otomatis oleh installer)
 - [Windows Terminal](https://aka.ms/terminal) disarankan agar tampilan paling baik
 
 ## Pasang
@@ -40,7 +40,7 @@ Klik dua kali `install.cmd`, atau dari terminal di folder ini:
 | `-InstallDir <path>` | Pasang di tempat lain (default `%LOCALAPPDATA%\FaDi-OSS-TUI`) |
 | `-Python <python.exe>` | Pakai Python tertentu |
 
-Installer hanya untuk penggunamu (tanpa hak administrator), memakai virtual environment pribadi, dan tidak mengubah apa pun di seluruh sistem. Pembungkus `.cmd` menjalankan PowerShell dengan `-ExecutionPolicy Bypass` hanya untuk skrip itu; baca `install.ps1` dulu kalau ingin tahu persis yang dikerjakannya.
+Installer hanya untuk penggunamu (tanpa hak administrator), memakai virtual environment pribadi, otomatis mengunduh ossutil 2.4.0 ke folder aplikasi, lalu memverifikasi SHA-256-nya. Layar login mendeteksi executable bawaan; kamu tidak perlu mencari path atau memasang ossutil sendiri. Pembungkus `.cmd` menjalankan PowerShell dengan `-ExecutionPolicy Bypass` hanya untuk skrip itu; baca `install.ps1` dulu kalau ingin tahu persis yang dikerjakannya.
 
 ## Jalankan
 
