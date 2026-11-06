@@ -29,12 +29,11 @@ Not yet: folder or batch upload, delete / rename / move, several profiles, other
 Double-click `install.cmd`, or from a terminal in this folder:
 
 ```powershell
-.\install.cmd -InstallOssutil -AddToPath
+.\install.cmd -AddToPath
 ```
 
 | Option | Effect |
 |---|---|
-| `-InstallOssutil` | Download ossutil 2.4.0 into the app folder and verify its SHA-256 |
 | `-AddToPath` | Add the launcher folder to your user PATH, so `fadi-oss-tui` works in any terminal |
 | `-NoShortcut` | Do not create the Start Menu shortcut |
 | `-InstallDir <path>` | Install somewhere else (default `%LOCALAPPDATA%\FaDi-OSS-TUI`) |
