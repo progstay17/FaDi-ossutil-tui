@@ -6,7 +6,7 @@ import math
 from rich.text import Text
 
 from .controller import PreflightInfo
-from .format import format_eta, format_size, format_speed, render_bar, truncate_middle
+from .format import format_duration, format_eta, format_size, format_speed, render_bar, truncate_middle
 from .jobs import Job, JobStatus, LiveStats
 from .ossutil import choose_part_size
 
@@ -82,6 +82,10 @@ def render_detail(
     line("Progress", f"{render_bar(job.percent, bar_width, unicode=unicode)} {job.percent:6.2f}%", "#D4F53C")
 
     uploading = job.status is JobStatus.UPLOADING
+    elapsed = job.elapsed_seconds
+    if uploading and live and live.started_at is not None:
+        elapsed += max(0.0, now - live.started_at)
+    line("Elapsed", format_duration(elapsed))
     activity_at = (
         live.last_activity if live and live.last_activity is not None
         else (live.last_event if live else None)
