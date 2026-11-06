@@ -10,7 +10,7 @@ It is made for large uploads (tens or hundreds of GB) that take hours: you can p
 ## What it does today
 
 - **Dark Operations Console.** A focused dashboard with a navigation rail, live queue metrics, upload list, selected-job details, and transfer summary. The visual system uses a charcoal surface with lime accents while staying entirely inside the terminal.
-- **Login once, stay logged in.** Enter AccessKey, region and a bucket; the app tests the connection (read-only) before saving. Log out any time with `L`.
+- **Login once, stay logged in.** Enter AccessKey, region and an existing bucket; the app tests the connection (read-only) before saving. A bucket URI such as `oss://my-bucket/team/` is normalized to the bucket root for this test. Log out any time with `L`.
 - **Upload large single files** with pause, resume (also after the app or PC stops), live speed and ETA, and a check after upload.
 - **Browse the bucket** (folders and files, paging, details) and pick the upload destination from the browser.
 - **Catches typos in the destination.** If the destination folder does not exist, the pre-flight dialog says so and suggests similar existing folders (for example `team-alpha-black` when you typed `team-alpah-black`).
