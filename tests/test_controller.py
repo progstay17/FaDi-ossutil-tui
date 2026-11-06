@@ -350,6 +350,37 @@ def test_folder_upload_verifies_total_size_and_object_count(tmp_path):
     assert any(call[1] == "du" for call in calls)
 
 
+
+def test_folder_verification_falls_back_to_recursive_ls_when_du_is_denied(tmp_path):
+    source = tmp_path / "SESSION_001"
+    source.mkdir()
+    (source / "a.mcap").write_bytes(b"a" * 600)
+    (source / "b.mcap").write_bytes(b"b" * 400)
+    calls = []
+
+    async def fake_exec(argv, env):
+        calls.append(argv)
+        if argv[1] == "du":
+            return 1, "", "AccessDenied: ListMultipartUploads is not authorized"
+        if argv[1] == "ls":
+            return 0, (
+                "LastModifiedTime                    Size(B)  StorageClass   ETag                                    ObjectName\\n"
+                "2026-11-06 15:00:00 +0800 CST           0      Standard   ABCD        oss://bucket-sandbox/FaDi-spike/SESSION_001/\\n"
+                "2026-11-06 15:00:01 +0800 CST         600      Standard   EFGH        oss://bucket-sandbox/FaDi-spike/SESSION_001/a.mcap\\n"
+                "2026-11-06 15:00:02 +0800 CST         400      Standard   IJKL        oss://bucket-sandbox/FaDi-spike/SESSION_001/b.mcap\\n"
+                "Object Number is: 3\\n"
+            ), ""
+        return 0, "", ""
+
+    controller = make_controller(tmp_path, code=FAKE_OK, exec_fn=fake_exec)
+    job = controller.add_job(str(source), DEST)
+    run(controller.run(job.id))
+
+    assert job.status is JobStatus.VERIFIED
+    assert "verified via ls" in job.message
+    assert any(call[1] == "du" for call in calls)
+    assert any(call[1] == "ls" and "-r" in call for call in calls)
+
 def test_empty_folder_upload_creates_and_verifies_marker(tmp_path):
     source = tmp_path / "EMPTY_SESSION"
     source.mkdir()
