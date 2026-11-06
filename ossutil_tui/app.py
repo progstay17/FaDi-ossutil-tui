@@ -336,7 +336,7 @@ class BrowserScreen(ModalScreen[str | None]):
         parent = parent_uri(self.current_uri)
         root = self._controller.default_root
         if parent is None or (root and not parent.startswith(normalize_dir_uri(root))):
-            self._set_status("Already at the permitted prefix root.")
+            self._set_status("Already at the bucket root of the permitted prefix.")
         else:
             self._navigate(parent)
 
