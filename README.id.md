@@ -10,7 +10,7 @@ Dibuat untuk upload besar (puluhan sampai ratusan GB) yang memakan waktu berjam-
 ## Yang sudah bisa
 
 - **Dark Operations Console.** Dashboard dengan navigasi samping, metrik antrean langsung, daftar upload, detail pekerjaan terpilih, dan ringkasan transfer. Tema charcoal dengan aksen lime, tetap sepenuhnya berjalan di terminal.
-- **Login sekali, tetap masuk.** Isi AccessKey, region, dan bucket; aplikasi mengetes koneksi (hanya-baca) sebelum menyimpan. Logout kapan saja dengan `L`.
+- **Login sekali, tetap masuk.** Isi AccessKey, region, dan bucket yang sudah ada; aplikasi mengetes koneksi (hanya-baca) sebelum menyimpan. URI seperti `oss://nama-bucket/folder/` dinormalisasi ke root bucket untuk tes ini. Logout kapan saja dengan `L`.
 - **Upload file besar** dengan jeda, lanjut (juga setelah aplikasi atau PC berhenti), kecepatan dan ETA langsung, serta pemeriksaan setelah upload.
 - **Menjelajah bucket** (folder dan file, paging, detail) dan memilih tujuan upload dari browser.
 - **Menangkap salah ketik di tujuan.** Kalau folder tujuan belum ada, dialog pre-flight memberi tahu dan menyarankan folder mirip yang sudah ada (misalnya `team-alpha-black` ketika kamu mengetik `team-alpah-black`).
@@ -21,7 +21,7 @@ Belum ada: upload folder atau batch, hapus / ganti nama / pindah, beberapa profi
 
 - Windows 10 atau 11 (kredensial dilindungi dengan Windows DPAPI)
 - Python 3.11 atau lebih baru (dikembangkan dan diuji dengan 3.14)
-- ossutil 2.x (installer bisa mengunduh 2.4.0 dan memverifikasi SHA-256-nya)
+- ossutil 2.x (diunduh dan diverifikasi SHA-256 secara otomatis oleh installer)
 - [Windows Terminal](https://aka.ms/terminal) disarankan agar tampilan paling baik
 
 ## Pasang
@@ -29,18 +29,17 @@ Belum ada: upload folder atau batch, hapus / ganti nama / pindah, beberapa profi
 Klik dua kali `install.cmd`, atau dari terminal di folder ini:
 
 ```powershell
-.\install.cmd -InstallOssutil -AddToPath
+.\install.cmd -AddToPath
 ```
 
 | Opsi | Efek |
 |---|---|
-| `-InstallOssutil` | Unduh ossutil 2.4.0 ke folder aplikasi dan verifikasi SHA-256-nya |
 | `-AddToPath` | Tambahkan folder launcher ke PATH pengguna, sehingga `fadi-oss-tui` jalan di terminal mana pun |
 | `-NoShortcut` | Jangan buat pintasan Start Menu |
 | `-InstallDir <path>` | Pasang di tempat lain (default `%LOCALAPPDATA%\FaDi-OSS-TUI`) |
 | `-Python <python.exe>` | Pakai Python tertentu |
 
-Installer hanya untuk penggunamu (tanpa hak administrator), memakai virtual environment pribadi, dan tidak mengubah apa pun di seluruh sistem. Pembungkus `.cmd` menjalankan PowerShell dengan `-ExecutionPolicy Bypass` hanya untuk skrip itu; baca `install.ps1` dulu kalau ingin tahu persis yang dikerjakannya.
+Installer hanya untuk penggunamu (tanpa hak administrator), memakai virtual environment pribadi, otomatis mengunduh ossutil 2.4.0 ke folder aplikasi, lalu memverifikasi SHA-256-nya. Layar login mendeteksi executable bawaan; kamu tidak perlu mencari path atau memasang ossutil sendiri. Pembungkus `.cmd` menjalankan PowerShell dengan `-ExecutionPolicy Bypass` hanya untuk skrip itu; baca `install.ps1` dulu kalau ingin tahu persis yang dikerjakannya.
 
 ## Jalankan
 

@@ -368,12 +368,11 @@ class LoginScreen(Screen):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="login-dialog"):
             yield Static(Text("OSS CONTROL CENTER  -  LOGIN", style="bold #35C6D8"))
-            yield Input(value=self._defaults.exe, placeholder=r"C:\tools\ossutil.exe", id="login-exe")
             yield Input(value=self._defaults.access_key_id, placeholder="LTAI...", id="login-key")
             yield Input(placeholder="AccessKey Secret (stored encrypted)", password=True, id="login-secret")
             yield Input(value=self._defaults.region, placeholder="ap-southeast-5", id="login-region")
             yield Input(
-                value=self._defaults.bucket, placeholder="bucket used to test the connection", id="login-bucket"
+                value=self._defaults.bucket, placeholder="bucket-name or oss://bucket/prefix/", id="login-bucket"
             )
             yield Static(Text(self._notice, style="#F2B84B"), id="login-status")
             with Horizontal(id="dialog-buttons"):
@@ -382,18 +381,14 @@ class LoginScreen(Screen):
 
     def on_mount(self) -> None:
         titles = {
-            "login-exe": "ossutil path",
             "login-key": "AccessKey ID",
             "login-secret": "AccessKey Secret",
             "login-region": "Region",
-            "login-bucket": "Bucket (connection test)",
+            "login-bucket": "Bucket / OSS URI (connection test)",
         }
         for widget_id, title in titles.items():
             self.query_one(f"#{widget_id}", Input).border_title = title
-        if not self._defaults.exe:
-            target = "login-exe"
-        else:
-            target = "login-secret" if self._defaults.access_key_id else "login-key"
+        target = "login-secret" if self._defaults.access_key_id else "login-key"
         self.query_one(f"#{target}", Input).focus()
 
     def _set_status(self, message: str, error: bool = False) -> None:
@@ -424,7 +419,7 @@ class LoginScreen(Screen):
                 secret=self.query_one("#login-secret", Input).value,
                 region=self.query_one("#login-region", Input).value,
                 bucket=self.query_one("#login-bucket", Input).value,
-                exe=self.query_one("#login-exe", Input).value,
+                exe=self._defaults.exe,
             )
             if check.errors:
                 self._set_status("\n".join(check.errors), error=True)
