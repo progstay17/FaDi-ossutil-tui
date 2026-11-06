@@ -17,7 +17,7 @@ from .browser import Entry, EntryKind, folder_of, normalize_dir_uri, parent_uri
 from .context import AppContext, LoginDefaults
 from .controller import JobController, JobError, PreflightInfo
 from .jobs import Job, JobStatus
-from .format import truncate_middle
+from .format import format_size, format_speed, truncate_middle
 from .ossutil import normalize_region
 from .profile import validate_login
 from .settings import Settings
@@ -26,27 +26,42 @@ from .views import (
 )
 
 APP_CSS = """
-Screen { background: #0B0F14; color: #E6EDF3; }
-#header { height: 1; background: #111821; padding: 0 1; }
-#tabs { height: 1; padding: 0 1; color: #35C6D8; }
-#body { height: 1fr; }
-#queue { width: 45%; height: 1fr; border: solid #293746; border-title-color: #35C6D8; background: #111821; }
-#detail { width: 1fr; height: 1fr; border: solid #293746; border-title-color: #35C6D8; background: #111821; padding: 0 1; }
-#total { height: 7; border: solid #293746; border-title-color: #35C6D8; background: #111821; padding: 0 1; }
-DataTable > .datatable--cursor { background: #203C4A; color: #E6EDF3; }
-Footer { background: #111821; }
-.ascii #queue, .ascii #detail, .ascii #total { border: ascii #293746; }
+Screen { background: #0D1117; color: #E6EDF3; }
+#header { height: 3; background: #151B23; padding: 0 2; border-bottom: solid #303843; }
+#tabs { height: 1; padding: 0 2; color: #8B98A7; background: #10161D; }
+#layout { height: 1fr; }
+#sidebar { width: 18; height: 1fr; padding: 1; background: #121820; border-right: solid #2A323D; }
+#sidebar-brand { height: 3; color: #D4F53C; text-style: bold; }
+#sidebar-kicker { height: 1; color: #748191; margin-top: 1; }
+#nav-active { height: 3; padding: 1; color: #D4F53C; background: #242D24; border-left: tall #D4F53C; }
+#nav-item { height: 2; padding: 0 1; color: #AAB4C0; }
+#sidebar-rule { height: 1; color: #3A424D; margin-top: 1; }
+#connection-label { height: 1; color: #748191; margin-top: 1; }
+#sidebar-connection { height: auto; color: #D4F53C; }
+#sidebar-meta { height: 1fr; color: #748191; content-align: left bottom; }
+#workspace { width: 1fr; height: 1fr; padding: 1; }
+#workspace-title { height: 2; color: #E6EDF3; text-style: bold; }
+#metrics { height: 5; }
+.metric { width: 1fr; height: 5; padding: 0 1; border: solid #303843; background: #151B23; }
+#body { height: 1fr; min-height: 8; }
+#queue { width: 56%; height: 1fr; border: solid #303843; border-title-color: #D4F53C; background: #151B23; }
+#detail { width: 1fr; height: 1fr; border: solid #303843; border-title-color: #D4F53C; background: #151B23; padding: 0 1; }
+#total { height: 6; border: solid #303843; border-title-color: #D4F53C; background: #151B23; padding: 0 1; }
+DataTable > .datatable--header { background: #1C242E; color: #AAB4C0; }
+DataTable > .datatable--cursor { background: #293326; color: #F0F4E8; }
+Footer { background: #151B23; color: #AAB4C0; }
+.ascii #queue, .ascii #detail, .ascii #total, .ascii .metric { border: ascii #303843; }
 AddJobScreen, PreflightScreen, LogoutScreen, LoginScreen, BrowserScreen { align: center middle; }
-#add-dialog, #preflight-dialog, #logout-dialog { width: 90%; max-width: 96; height: auto; border: double #35C6D8; background: #19232E; padding: 1 2; }
-#login-dialog { width: 90%; max-width: 84; height: auto; max-height: 100%; border: double #35C6D8; background: #19232E; padding: 1 2; }
+#add-dialog, #preflight-dialog, #logout-dialog { width: 90%; max-width: 96; height: auto; border: double #D4F53C; background: #19232E; padding: 1 2; }
+#login-dialog { width: 90%; max-width: 84; height: auto; max-height: 100%; border: double #D4F53C; background: #19232E; padding: 1 2; }
 #login-status { height: auto; min-height: 1; margin-top: 1; }
 #dest-row { height: 3; }
 #dest-row Input { width: 1fr; }
 #dest-row Button { width: 14; margin-left: 1; }
-#browser-dialog { width: 96%; height: 90%; border: double #35C6D8; background: #19232E; padding: 0 1; }
-#browser-crumb { height: 1; color: #35C6D8; }
-#browser-table { height: 1fr; background: #111821; }
-#browser-info { height: 7; border: solid #293746; background: #111821; padding: 0 1; }
+#browser-dialog { width: 96%; height: 90%; border: double #D4F53C; background: #19232E; padding: 0 1; }
+#browser-crumb { height: 1; color: #D4F53C; }
+#browser-table { height: 1fr; background: #151B23; }
+#browser-info { height: 7; border: solid #303843; background: #151B23; padding: 0 1; }
 #browser-status { height: 1; color: #9AA9B8; }
 #add-error { color: #F06A72; height: auto; }
 #dialog-buttons { height: 3; margin-top: 1; }
@@ -492,10 +507,28 @@ class MainScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Static(id="header")
         yield Static(id="tabs")
-        with Horizontal(id="body"):
-            yield DataTable(id="queue")
-            yield Static(id="detail")
-        yield Static(id="total")
+        with Horizontal(id="layout"):
+            with Vertical(id="sidebar"):
+                yield Static("FaDi  /  OSS", id="sidebar-brand")
+                yield Static("WORKSPACE", id="sidebar-kicker")
+                yield Static("▸  OVERVIEW", id="nav-active")
+                yield Static("   UPLOAD QUEUE", id="nav-item")
+                yield Static("   BUCKET BROWSER", id="nav-item")
+                yield Static("────────────────", id="sidebar-rule")
+                yield Static("CONNECTION", id="connection-label")
+                yield Static(id="sidebar-connection")
+                yield Static(f"v{__version__}", id="sidebar-meta")
+            with Vertical(id="workspace"):
+                yield Static("OPERATIONS OVERVIEW", id="workspace-title")
+                with Horizontal(id="metrics"):
+                    yield Static(id="metric-jobs", classes="metric")
+                    yield Static(id="metric-transfer", classes="metric")
+                    yield Static(id="metric-speed", classes="metric")
+                    yield Static(id="metric-verified", classes="metric")
+                with Horizontal(id="body"):
+                    yield DataTable(id="queue")
+                    yield Static(id="detail")
+                yield Static(id="total")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -503,9 +536,9 @@ class MainScreen(Screen):
         table = self.query_one("#queue", DataTable)
         table.cursor_type = "row"
         table.add_columns("ST", "NAME", "SIZE", "%")
-        table.border_title = "QUEUE"
-        self.query_one("#detail", Static).border_title = "ACTIVE JOB"
-        self.query_one("#total", Static).border_title = "TOTAL TRANSFER"
+        table.border_title = "UPLOAD QUEUE"
+        self.query_one("#detail", Static).border_title = "SELECTED JOB"
+        self.query_one("#total", Static).border_title = "TRANSFER SUMMARY"
         self.app.controller.set_on_change(self.refresh_view)
         self.refresh_view()
         self.set_interval(0.5, self.refresh_view)
@@ -525,15 +558,38 @@ class MainScreen(Screen):
         settings: Settings = self.app.settings
         controller: JobController = self.app.controller
         header = Text()
-        header.append(" OSS CONTROL CENTER ", style="bold #35C6D8")
-        header.append(f"v{__version__}   ", style="#647587")
-        header.append(f"region {normalize_region(settings.region)}   ", style="#9AA9B8")
+        header.append("  FaDi  /  OSS OPERATIONS CONSOLE", style="bold #D4F53C")
+        header.append(f"    v{__version__}   ", style="#748191")
+        header.append(f"REGION  {normalize_region(settings.region)}", style="#AAB4C0")
         profile = self.app.context.profile
         if profile is not None:
-            header.append(f"bucket {profile.bucket}   key {profile.masked_key()}", style="#9AA9B8")
+            header.append(f"     ● CONNECTED   {profile.bucket}", style="bold #D4F53C")
         self.last_header_text = header.plain
         self.query_one("#header", Static).update(header)
-        self.query_one("#tabs", Static).update(Text("[UPLOADS]"))
+        self.query_one("#tabs", Static).update(Text("OPERATIONS   /   UPLOAD QUEUE   /   BUCKET BROWSER", style="#8B98A7"))
+        self.query_one("#workspace-title", Static).update(Text("OPERATIONS OVERVIEW", style="bold #E6EDF3"))
+        if profile is not None:
+            self.query_one("#sidebar-connection", Static).update(
+                Text(f"● {profile.bucket}\\n{profile.masked_key()}", style="#D4F53C")
+            )
+        else:
+            self.query_one("#sidebar-connection", Static).update(Text("● OFFLINE", style="#F2B84B"))
+
+        jobs = controller.jobs
+        active = next((job for job in jobs if job.status is JobStatus.UPLOADING), None)
+        transferred = sum(job.done_bytes for job in jobs)
+        verified = sum(1 for job in jobs if job.status is JobStatus.VERIFIED)
+        metrics = (
+            ("#metric-jobs", "QUEUE ITEMS", f"{len(jobs):02d}", "#D4F53C"),
+            ("#metric-transfer", "TRANSFERRED", format_size(transferred), "#E6EDF3"),
+            ("#metric-speed", "LIVE SPEED", format_speed(controller.live.get(active.id).speed if active and active.id in controller.live else None), "#D4F53C"),
+            ("#metric-verified", "VERIFIED", f"{verified} / {len(jobs)}", "#43C98B"),
+        )
+        for widget_id, label, value, color in metrics:
+            card = Text()
+            card.append(label + "\\n", style="#8793A1")
+            card.append(value, style=f"bold {color}")
+            self.query_one(widget_id, Static).update(card)
 
         table = self.query_one("#queue", DataTable)
         ids = [job.id for job in controller.jobs]
