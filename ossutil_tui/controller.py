@@ -494,16 +494,35 @@ class JobController:
         result: RunResult | None = None
         start_error = ""
         try:
-            # A stalled attempt is restarted with the same checkpoint. Never discard
-            # multipart state; ossutil decides which parts still need uploading.
-            for attempt in range(5):
+            # Retry indefinitely for transient network loss or inactivity. Every
+            # attempt reuses the exact same argv/checkpoint; never discard multipart
+            # state. Permanent errors still stop immediately for user intervention.
+            attempt = 0
+            while True:
                 result = await runner.run(argv, max(job.size, 1))
-                if not getattr(result, "stalled", False) or attempt == 4:
+                if result.paused or result.success:
                     break
-                job.message = f"Connection inactive; retrying from checkpoint ({attempt + 1}/4)"
+                failure_text = f"{result.stderr_text}\n{result.stdout_tail}"
+                failure_kind, _failure_message = classify_failure(failure_text)
+                retryable = bool(getattr(result, "stalled", False)) or failure_kind == "network"
+                if not retryable:
+                    break
+                attempt += 1
+                stalled = bool(getattr(result, "stalled", False))
+                reason = "no activity for 3 seconds" if stalled else "network connection lost"
+                retry_delay = 0.0 if stalled else 3.0
+                job.message = (
+                    f"{reason}; retrying from checkpoint (attempt {attempt})"
+                    + (f" in {retry_delay:.0f}s. " if retry_delay else " now. ")
+                    + "Press P to pause."
+                )
                 self._persist()
                 self._changed()
-                await asyncio.sleep(min(2 ** (attempt + 1), 30))
+                if retry_delay:
+                    await asyncio.sleep(retry_delay)
+                if getattr(runner, "_paused", False):
+                    result = RunResult(None, False, True, "", "")
+                    break
         except OSError as exc:
             start_error = f"cannot start ossutil: {exc}"
         finally:
@@ -535,7 +554,7 @@ class JobController:
             job.status = JobStatus.FAILED
             job.resumable = self._has_checkpoint(job)
             job.message = (
-                "Upload inactive after 5 attempts; checkpoint preserved. Resume to retry."
+                "Upload remains inactive; checkpoint preserved. Resume to retry."
                 if getattr(result, "stalled", False)
                 else (
                     _last_meaningful_line(result.stderr_text)

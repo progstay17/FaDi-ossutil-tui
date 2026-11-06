@@ -24,7 +24,7 @@ LABEL = "#8793A1"
 VALUE = "#E6EDF3"
 DIM = "#9AA9B8"
 ERROR = "#F06A72"
-STALL_SECONDS = 90.0
+STALL_SECONDS = 3.0
 PROGRESS_UPDATE_SECONDS = 10.0
 EMPTY_TEXT = "NO UPLOAD JOBS\n\nPress A to add a file."
 
@@ -76,16 +76,18 @@ def render_detail(
     if job.resumable and job.status in (JobStatus.PAUSED, JobStatus.FAILED):
         status += " [RESUME]"
     line("Status", status, STATUS_COLORS[job.status])
-    line("Uploaded", f"{format_size(job.done_bytes)} / {format_size(job.size)}")
-    if job.is_folder:
-        line("Contents", f"{job.folder_files:,} file(s), {job.folder_dirs + 1:,} folder(s)")
-    line("Progress", f"{render_bar(job.percent, bar_width, unicode=unicode)} {job.percent:6.2f}%", "#D4F53C")
 
+    # Keep elapsed near the top so it remains visible in short terminal layouts.
     uploading = job.status is JobStatus.UPLOADING
     elapsed = job.elapsed_seconds
     if uploading and live and live.started_at is not None:
         elapsed += max(0.0, now - live.started_at)
     line("Elapsed", format_duration(elapsed))
+
+    line("Uploaded", f"{format_size(job.done_bytes)} / {format_size(job.size)}")
+    if job.is_folder:
+        line("Contents", f"{job.folder_files:,} file(s), {job.folder_dirs + 1:,} folder(s)")
+    line("Progress", f"{render_bar(job.percent, bar_width, unicode=unicode)} {job.percent:6.2f}%", "#D4F53C")
     activity_at = (
         live.last_activity if live and live.last_activity is not None
         else (live.last_event if live else None)

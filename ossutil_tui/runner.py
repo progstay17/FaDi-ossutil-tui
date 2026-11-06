@@ -14,7 +14,7 @@ from .progress import SpeedTracker
 _SPLIT_RE = re.compile(r"[\r\n]")
 _TAIL_LIMIT = 4096
 _STDERR_LIMIT = 8192
-STALL_TIMEOUT_SECONDS = 90.0
+STALL_TIMEOUT_SECONDS = 3.0
 
 
 @dataclass(frozen=True)
@@ -65,13 +65,16 @@ class UploadRunner:
             self._on_activity()
 
     def pause(self) -> None:
+        # Also remember a pause requested during the retry backoff, when no
+        # subprocess is currently attached to this runner.
+        self._paused = True
         proc = self._proc
         if proc is not None and proc.returncode is None:
-            self._paused = True
             proc.terminate()
 
     async def run(self, argv: list[str], total_bytes: int) -> RunResult:
-        self._paused = False
+        if self._paused:
+            return RunResult(None, False, True, "", "")
         self._stalled = False
         self._last_activity = self._clock()
         tracker = SpeedTracker(total_bytes)
@@ -133,7 +136,7 @@ class UploadRunner:
                 stderr_text = (stderr_text + chunk.decode("utf-8", errors="replace"))[-_STDERR_LIMIT:]
 
         async def watch_stall() -> None:
-            interval = min(2.0, max(0.1, self._stall_timeout / 10))
+            interval = min(0.5, max(0.1, self._stall_timeout / 6))
             while proc.returncode is None:
                 await asyncio.sleep(interval)
                 if (

@@ -38,6 +38,13 @@ _RULES: list[tuple[str, str, str]] = [
     ("i/o timeout", "network", "Cannot reach OSS (timeout). Check the network."),
     ("connectex", "network", "Cannot reach OSS. Check the network."),
     ("dial tcp", "network", "Cannot reach OSS. Check the network."),
+    ("connection reset", "network", "Connection interrupted. Waiting to retry."),
+    ("connection refused", "network", "Connection interrupted. Waiting to retry."),
+    ("network is unreachable", "network", "Network unavailable. Waiting to retry."),
+    ("temporary failure", "network", "Temporary network failure. Waiting to retry."),
+    ("unexpected eof", "network", "Connection interrupted. Waiting to retry."),
+    ("broken pipe", "network", "Connection interrupted. Waiting to retry."),
+    ("tls handshake timeout", "network", "Connection timed out. Waiting to retry."),
     ("timeout", "network", "Cannot reach OSS (timeout). Check the network."),
 ]
 

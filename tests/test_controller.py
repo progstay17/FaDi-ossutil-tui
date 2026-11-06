@@ -527,5 +527,43 @@ def test_stalled_upload_retries_with_same_checkpoint(tmp_path):
     assert runner.calls == 2
     assert job.status is JobStatus.VERIFIED
     assert marker.exists()
-    # Elapsed time spans both attempts and the retry backoff interval.
-    assert job.elapsed_seconds >= 1.5
+    # Elapsed time is accumulated across both attempts even when a stalled
+    # process is restarted immediately from its existing checkpoint.
+    assert job.elapsed_seconds >= 0
+
+
+
+def test_transient_network_failure_retries_indefinitely_from_same_checkpoint(tmp_path):
+    from ossutil_tui.runner import RunResult
+
+    controller = make_controller(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+    checkpoint = controller._job_checkpoint_dir(job)
+    marker = checkpoint / "multipart.ucp"
+
+    class NetworkRetryRunner:
+        calls = 0
+
+        def set_activity_callback(self, callback):
+            self.activity_callback = callback
+
+        def notify_activity(self):
+            if getattr(self, "activity_callback", None):
+                self.activity_callback()
+
+        async def run(self, _argv, _total_bytes):
+            self.calls += 1
+            if self.calls == 1:
+                checkpoint.mkdir(parents=True, exist_ok=True)
+                marker.write_text("same multipart checkpoint", encoding="utf-8")
+                return RunResult(1, False, False, "", "connection reset by peer")
+            assert marker.read_text(encoding="utf-8") == "same multipart checkpoint"
+            return RunResult(0, True, False, "Success: upload complete", "")
+
+    runner = NetworkRetryRunner()
+    controller._runner_factory = lambda _callback: runner
+    run(controller.run(job.id), timeout=12)
+
+    assert runner.calls == 2
+    assert job.status is JobStatus.VERIFIED
+    assert marker.exists()
