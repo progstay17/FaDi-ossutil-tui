@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fadi-oss-tui"
+dynamic = ["version"]
+description = "Terminal UI for Alibaba Cloud OSS built on ossutil 2.x: login, browse, and upload large files with pause and resume"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["textual>=8.0,<9", "rich>=13"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+fadi-oss-tui = "ossutil_tui.__main__:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "ossutil_tui.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["ossutil_tui*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

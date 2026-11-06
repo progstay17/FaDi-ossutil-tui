@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install into a temporary folder
+        shell: pwsh
+        run: ./install.ps1 -InstallDir "$env:RUNNER_TEMP\fadi" -NoShortcut
+      - name: The launcher starts
+        shell: pwsh
+        run: '& "$env:RUNNER_TEMP\fadi\bin\fadi-oss-tui.cmd" --help'
+      - name: Uninstall
+        shell: pwsh
+        run: ./uninstall.ps1 -InstallDir "$env:RUNNER_TEMP\fadi" -RemoveData -Force

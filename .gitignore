@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# Local data and secrets: never commit these
+profile.json
+queue.json
+*.ossutilconfig
+ossutil.empty.cfg
+.env
+logs/
+checkpoints/
+ossutil_output/
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
