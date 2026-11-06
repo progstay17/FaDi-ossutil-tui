@@ -42,7 +42,7 @@ def render_row(job: Job, *, name_width: int = 22, unicode: bool = True) -> tuple
 
 def _verify_line(job: Job) -> str:
     if job.status is JobStatus.VERIFIED:
-        return f"VERIFIED (CRC64 {job.remote_crc64})"
+        return "VERIFIED (folder totals)" if job.is_folder else f"VERIFIED (CRC64 {job.remote_crc64})"
     if job.status is JobStatus.VERIFY_FAILED:
         return "VERIFY FAILED"
     if job.status is JobStatus.VERIFYING:
@@ -76,6 +76,8 @@ def render_detail(
         status += " [RESUME]"
     line("Status", status, STATUS_COLORS[job.status])
     line("Uploaded", f"{format_size(job.done_bytes)} / {format_size(job.size)}")
+    if job.is_folder:
+        line("Contents", f"{job.folder_files:,} file(s), {job.folder_dirs + 1:,} folder(s)")
     line("Progress", f"{render_bar(job.percent, bar_width, unicode=unicode)} {job.percent:6.2f}%", "#D4F53C")
 
     uploading = job.status is JobStatus.UPLOADING
@@ -159,6 +161,9 @@ def render_preflight(info: PreflightInfo, *, unicode: bool = True, note: str = "
     line("Source", truncate_middle(info.source, 60, _ellipsis(unicode)))
     line("Destination", truncate_middle(info.object_uri, 60, _ellipsis(unicode)))
     line("File size", format_size(info.size))
+    if info.is_folder:
+        line("Contents", f"{info.folder_files:,} file(s), {info.folder_dirs + 1:,} folder(s)")
+        line("Upload mode", "RECURSIVE (keeps relative paths)")
     line("Part size", format_size(info.part_size))
     line("Parts", str(info.parts))
     line("Region", info.region)
