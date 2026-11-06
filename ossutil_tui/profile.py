@@ -106,6 +106,11 @@ class Profile:
     region: str
     bucket: str
     exe: str
+    prefix: str = ""
+
+    @property
+    def root_uri(self) -> str:
+        return f"oss://{self.bucket}/" + (self.prefix.strip("/") + "/" if self.prefix.strip("/") else "")
 
     def masked_key(self) -> str:
         key = self.access_key_id
@@ -119,11 +124,14 @@ class LoginCheck:
     errors: list[str] = field(default_factory=list)
 
 
-def _normalize_bucket(raw: str) -> str:
+def _normalize_target(raw: str) -> tuple[str, str]:
     value = raw.strip()
     if value.lower().startswith("oss://"):
         value = value[6:]
-    return value.strip("/").split("/")[0]
+    bucket, _, prefix = value.partition("/")
+    if "?" in prefix or "#" in prefix or "\\" in prefix:
+        return bucket, "!invalid!"
+    return bucket, prefix.strip("/")
 
 
 def validate_login(*, access_key_id: str, secret: str, region: str, bucket: str, exe: str) -> LoginCheck:
@@ -132,7 +140,7 @@ def validate_login(*, access_key_id: str, secret: str, region: str, bucket: str,
     secret_value = secret.strip()
     exe_value = exe.strip().strip('"')
     normalized_region = normalize_region(region)
-    normalized_bucket = _normalize_bucket(bucket)
+    normalized_bucket, normalized_prefix = _normalize_target(bucket)
 
     if not _KEY_RE.fullmatch(key):
         errors.append("AccessKey ID looks invalid (8-64 letters or digits, no spaces).")
@@ -146,12 +154,14 @@ def validate_login(*, access_key_id: str, secret: str, region: str, bucket: str,
         errors.append(f"Region does not look valid: {region.strip()!r} (example: ap-southeast-5).")
     if not _BUCKET_RE.fullmatch(normalized_bucket):
         errors.append("Bucket name looks invalid (lowercase letters, digits, hyphens; 3-63 characters).")
+    if normalized_prefix == "!invalid!":
+        errors.append("OSS prefix must not contain query strings, fragments, or backslashes.")
     if not exe_value or not Path(exe_value).is_file():
         errors.append(f"ossutil not found: {exe_value or '(empty)'}")
 
     if errors:
         return LoginCheck(None, secret_value, errors)
-    profile = Profile("default", key, normalized_region, normalized_bucket, exe_value)
+    profile = Profile("default", key, normalized_region, normalized_bucket, exe_value, normalized_prefix)
     return LoginCheck(profile, secret_value, [])
 
 
@@ -189,6 +199,7 @@ class ProfileStore:
                 region=str(raw["region"]),
                 bucket=str(raw["bucket"]),
                 exe=str(raw["exe"]),
+                prefix=str(raw.get("prefix", "")),
             )
         except KeyError as exc:
             raise ProfileError("The saved profile is incomplete. Please log in again.") from exc
