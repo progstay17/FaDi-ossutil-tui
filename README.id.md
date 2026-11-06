@@ -9,6 +9,7 @@ Dibuat untuk upload besar (puluhan sampai ratusan GB) yang memakan waktu berjam-
 
 ## Yang sudah bisa
 
+- **Dark Operations Console.** Dashboard dengan navigasi samping, metrik antrean langsung, daftar upload, detail pekerjaan terpilih, dan ringkasan transfer. Tema charcoal dengan aksen lime, tetap sepenuhnya berjalan di terminal.
 - **Login sekali, tetap masuk.** Isi AccessKey, region, dan bucket; aplikasi mengetes koneksi (hanya-baca) sebelum menyimpan. Logout kapan saja dengan `L`.
 - **Upload file besar** dengan jeda, lanjut (juga setelah aplikasi atau PC berhenti), kecepatan dan ETA langsung, serta pemeriksaan setelah upload.
 - **Menjelajah bucket** (folder dan file, paging, detail) dan memilih tujuan upload dari browser.

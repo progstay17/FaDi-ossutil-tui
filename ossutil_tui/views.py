@@ -12,15 +12,15 @@ from .ossutil import choose_part_size
 
 STATUS_COLORS = {
     JobStatus.PENDING: "#9AA9B8",
-    JobStatus.UPLOADING: "#35C6D8",
+    JobStatus.UPLOADING: "#D4F53C",
     JobStatus.PAUSED: "#F2B84B",
-    JobStatus.UPLOADED: "#35C6D8",
-    JobStatus.VERIFYING: "#35C6D8",
+    JobStatus.UPLOADED: "#D4F53C",
+    JobStatus.VERIFYING: "#D4F53C",
     JobStatus.VERIFIED: "#43C98B",
     JobStatus.VERIFY_FAILED: "#F06A72",
     JobStatus.FAILED: "#F06A72",
 }
-LABEL = "#647587"
+LABEL = "#8793A1"
 VALUE = "#E6EDF3"
 DIM = "#9AA9B8"
 ERROR = "#F06A72"
@@ -76,7 +76,7 @@ def render_detail(
         status += " [RESUME]"
     line("Status", status, STATUS_COLORS[job.status])
     line("Uploaded", f"{format_size(job.done_bytes)} / {format_size(job.size)}")
-    line("Progress", f"{render_bar(job.percent, bar_width, unicode=unicode)} {job.percent:6.2f}%")
+    line("Progress", f"{render_bar(job.percent, bar_width, unicode=unicode)} {job.percent:6.2f}%", "#D4F53C")
 
     uploading = job.status is JobStatus.UPLOADING
     speed = live.speed if (uploading and live) else None
@@ -155,7 +155,7 @@ def render_preflight(info: PreflightInfo, *, unicode: bool = True, note: str = "
         text.append(f"{label:<13}", style=LABEL)
         text.append(value + "\n", style=style)
 
-    text.append("UPLOAD PRE-FLIGHT CHECK\n\n", style="bold #35C6D8")
+    text.append("UPLOAD PRE-FLIGHT CHECK\n\n", style="bold #D4F53C")
     line("Source", truncate_middle(info.source, 60, _ellipsis(unicode)))
     line("Destination", truncate_middle(info.object_uri, 60, _ellipsis(unicode)))
     line("File size", format_size(info.size))
