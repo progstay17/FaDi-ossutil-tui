@@ -21,7 +21,7 @@ Not yet: folder or batch upload, delete / rename / move, several profiles, other
 
 - Windows 10 or 11 (credentials are protected with Windows DPAPI)
 - Python 3.11 or newer (developed and tested with 3.14)
-- ossutil 2.x (the installer can download 2.4.0 and verify its SHA-256 for you)
+- ossutil 2.x (downloaded and SHA-256-verified automatically by the installer)
 - [Windows Terminal](https://aka.ms/terminal) is recommended for the best display
 
 ## Install
