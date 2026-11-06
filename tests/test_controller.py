@@ -35,6 +35,16 @@ def test_add_job_validates_input(tmp_path):
         controller.add_job(str(source), DEST)
 
 
+def test_add_job_cannot_escape_the_configured_prefix(tmp_path):
+    controller = make_controller(tmp_path)
+    controller.default_root = "oss://bucket-sandbox/EGO/"
+    source = make_source(tmp_path)
+    controller.add_job(str(source), "oss://bucket-sandbox/EGO/sub/")
+    other = make_source(tmp_path, name="outside.bin")
+    with pytest.raises(JobError, match="outside the permitted prefix"):
+        controller.add_job(str(other), "oss://bucket-sandbox/OTHER/")
+
+
 def test_add_job_is_persisted(tmp_path):
     controller = make_controller(tmp_path)
     controller.add_job(str(make_source(tmp_path)), DEST)
