@@ -460,3 +460,40 @@ def test_discard_legacy_checkpoint_preserves_shared_directory(tmp_path):
     assert (shared / "legacy-state").read_text() == "keep"
     assert job.checkpoint_dir == str(shared / job.id)
     assert job.status is JobStatus.PENDING and not job.resumable
+
+
+def test_stalled_upload_retries_with_same_checkpoint(tmp_path):
+    from pathlib import Path
+    from ossutil_tui.runner import RunResult
+
+    controller = make_controller(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+    checkpoint = controller._job_checkpoint_dir(job)
+    marker = checkpoint / "multipart.ucp"
+
+    class RetryRunner:
+        calls = 0
+
+        def set_activity_callback(self, callback):
+            self.activity_callback = callback
+
+        def notify_activity(self):
+            if getattr(self, "activity_callback", None):
+                self.activity_callback()
+
+        async def run(self, _argv, _total_bytes):
+            self.calls += 1
+            if self.calls == 1:
+                checkpoint.mkdir(parents=True, exist_ok=True)
+                marker.write_text("checkpoint", encoding="utf-8")
+                return RunResult(1, False, False, "", "", stalled=True)
+            assert marker.read_text(encoding="utf-8") == "checkpoint"
+            return RunResult(0, True, False, "Success: upload complete", "")
+
+    runner = RetryRunner()
+    controller._runner_factory = lambda _callback: runner
+    run(controller.run(job.id), timeout=10)
+
+    assert runner.calls == 2
+    assert job.status is JobStatus.VERIFIED
+    assert marker.exists()
