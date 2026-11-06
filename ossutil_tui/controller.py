@@ -228,6 +228,8 @@ class JobController:
         job = self.get(job_id)
         if job.status in (JobStatus.UPLOADING, JobStatus.VERIFYING):
             raise JobError("job is running; pause it first")
+        if job.resumable and job.status in (JobStatus.PAUSED, JobStatus.FAILED):
+            raise JobError("job has a checkpoint; discard it before removing the job")
         self.jobs.remove(job)
         self.live.pop(job.id, None)
         self._persist()

@@ -3,7 +3,7 @@ from dataclasses import replace
 
 from textual.widgets import Button, DataTable, Input
 
-from ossutil_tui.app import AddJobScreen, FaDiApp, MainScreen, PreflightScreen
+from ossutil_tui.app import AddJobScreen, DiscardCheckpointScreen, FaDiApp, MainScreen, PreflightScreen
 from ossutil_tui.jobs import JobStatus
 from tests.fakes import FAKE_OK, FAKE_SLOW, make_context, make_controller, make_source, press_start
 
@@ -302,7 +302,7 @@ def test_discard_checkpoint_requires_confirmation_and_resets_job(tmp_path):
             await pilot.pause()
             await pilot.press("d")
             await pilot.pause()
-            assert "DISCARD CHECKPOINT" in str(app.screen)
+            assert isinstance(app.screen, DiscardCheckpointScreen)
             await pilot.press("escape")
             await pilot.pause()
             assert job.status is JobStatus.PAUSED
