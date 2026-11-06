@@ -159,12 +159,26 @@ class AppContext:
         self._secret = None
 
     def login_defaults(self) -> LoginDefaults:
+        saved = None
         if self.store.exists():
             try:
                 saved = self.store.load()
-                return LoginDefaults(saved.exe, saved.access_key_id, saved.region, saved.bucket)
             except ProfileError:
                 pass
-        bundled = str(self.paths.bundled_ossutil) if self.paths.bundled_ossutil.is_file() else ""
-        exe = self._remembered.exe or self.exe_hint or bundled or shutil.which("ossutil") or ""
-        return LoginDefaults(exe, "", self._remembered.region, self._remembered.bucket)
+
+        # Prefer the app-managed binary. Old profiles may point at a path that no
+        # longer exists; never let that stale path block a fresh login.
+        candidates = (
+            str(self.paths.bundled_ossutil),
+            saved.exe if saved else "",
+            self._remembered.exe,
+            self.exe_hint,
+            shutil.which("ossutil") or "",
+        )
+        exe = next((candidate for candidate in candidates if candidate and Path(candidate).is_file()), "")
+        return LoginDefaults(
+            exe,
+            saved.access_key_id if saved else "",
+            saved.region if saved else self._remembered.region,
+            saved.bucket if saved else self._remembered.bucket,
+        )
