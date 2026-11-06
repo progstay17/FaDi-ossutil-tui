@@ -169,10 +169,10 @@ class AppContext:
         # Prefer the app-managed binary. Old profiles may point at a path that no
         # longer exists; never let that stale path block a fresh login.
         candidates = (
+            self.exe_hint,
             str(self.paths.bundled_ossutil),
             saved.exe if saved else "",
             self._remembered.exe,
-            self.exe_hint,
             shutil.which("ossutil") or "",
         )
         exe = next((candidate for candidate in candidates if candidate and Path(candidate).is_file()), "")
