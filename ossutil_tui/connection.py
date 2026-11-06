@@ -79,8 +79,12 @@ async def check_connection(
     timeout: float = 25.0,
 ) -> ConnectionResult:
     """Read-only check: list at most one object of the bucket with the entered credentials."""
+    target = bucket.strip()
+    if not target.startswith("oss://"):
+        target = f"oss://{target}"
+    target = target.rstrip("/") + "/" if target.count("/") > 2 else target.rstrip("/")
     argv = [
-        exe, "ls", f"oss://{bucket}", "--limited-num", "1",
+        exe, "ls", target, "--limited-num", "1",
         "--region", region, "--config-file", config_file,
         "--retry-times", "1", "--connect-timeout", "8",
     ]
