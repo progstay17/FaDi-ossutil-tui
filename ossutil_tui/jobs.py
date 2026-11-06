@@ -47,6 +47,7 @@ class LiveStats:
     speed: float | None = None
     eta: float | None = None
     last_event: float | None = None
+    last_activity: float | None = None
 
 
 @dataclass
