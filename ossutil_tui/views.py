@@ -24,7 +24,8 @@ LABEL = "#8793A1"
 VALUE = "#E6EDF3"
 DIM = "#9AA9B8"
 ERROR = "#F06A72"
-STALL_SECONDS = 10.0
+STALL_SECONDS = 90.0
+PROGRESS_UPDATE_SECONDS = 10.0
 EMPTY_TEXT = "NO UPLOAD JOBS\n\nPress A to add a file."
 
 
@@ -81,11 +82,31 @@ def render_detail(
     line("Progress", f"{render_bar(job.percent, bar_width, unicode=unicode)} {job.percent:6.2f}%", "#D4F53C")
 
     uploading = job.status is JobStatus.UPLOADING
-    speed = live.speed if (uploading and live) else None
-    line("Speed", format_speed(speed) if uploading else "--")
+    activity_at = (
+        live.last_activity if live and live.last_activity is not None
+        else (live.last_event if live else None)
+    )
+    activity_recent = activity_at is not None and now - activity_at <= STALL_SECONDS
+    progress_recent = bool(
+        live and live.last_event is not None
+        and now - live.last_event <= PROGRESS_UPDATE_SECONDS
+    )
+    speed = live.speed if (uploading and live and progress_recent) else None
+    if not uploading:
+        line("Speed", "--")
+    elif activity_recent and not progress_recent:
+        line("Speed", "Active")
+    else:
+        line("Speed", format_speed(speed))
     if uploading:
-        stalled = bool(live and live.last_event is not None and now - live.last_event > STALL_SECONDS)
-        line("ETA", format_eta(live.eta if live else None, stalled=stalled))
+        stalled = not activity_recent
+        if stalled:
+            eta_text = format_eta(None, stalled=True)
+        elif not progress_recent:
+            eta_text = "Working..."
+        else:
+            eta_text = format_eta(live.eta if live else None)
+        line("ETA", eta_text)
     elif job.status is JobStatus.PAUSED:
         line("ETA", format_eta(None, paused=True))
     else:
