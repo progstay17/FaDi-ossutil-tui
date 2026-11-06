@@ -63,6 +63,8 @@ class Job:
     is_folder: bool = False
     folder_files: int = 0
     folder_dirs: int = 0
+    # None marks a legacy job that still uses the old shared checkpoint directory.
+    checkpoint_dir: str | None = None
 
     @property
     def name(self) -> str:
@@ -98,6 +100,7 @@ class Job:
             "is_folder": self.is_folder,
             "folder_files": self.folder_files,
             "folder_dirs": self.folder_dirs,
+            "checkpoint_dir": self.checkpoint_dir,
         }
 
     @classmethod
@@ -121,6 +124,7 @@ class Job:
             is_folder=bool(raw.get("is_folder", False)),
             folder_files=int(raw.get("folder_files", 0)),
             folder_dirs=int(raw.get("folder_dirs", 0)),
+            checkpoint_dir=(str(raw["checkpoint_dir"]) if raw.get("checkpoint_dir") else None),
         )
 
 
