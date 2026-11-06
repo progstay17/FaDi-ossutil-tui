@@ -25,6 +25,16 @@ def format_speed(bytes_per_second: float | None) -> str:
     return f"{format_size(int(bytes_per_second))}/s"
 
 
+def format_duration(seconds: float | None) -> str:
+    """Format elapsed time as a readable, zero-padded duration."""
+    total = int(max(0.0, seconds or 0.0))
+    days, remainder = divmod(total, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, secs = divmod(remainder, 60)
+    clock = f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{days}d {clock}" if days else clock
+
+
 def format_eta(seconds: float | None, *, paused: bool = False, stalled: bool = False) -> str:
     if paused:
         return "Paused"

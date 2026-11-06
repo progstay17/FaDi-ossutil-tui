@@ -47,6 +47,14 @@ def test_interrupted_jobs_are_made_honest_and_persisted(tmp_path):
     assert [j["status"] for j in on_disk["jobs"]] == ["PAUSED", "UPLOADED"]
 
 
+def test_legacy_job_without_elapsed_seconds_loads_with_zero_elapsed():
+    job = Job.from_dict(
+        {"id": "legacy", "source": "a.bin", "destination": "oss://b/", "size": 10, "status": "PAUSED"}
+    )
+    assert job.status is JobStatus.PAUSED
+    assert job.elapsed_seconds == 0.0
+
+
 def test_unknown_status_becomes_failed_with_message():
     job = Job.from_dict(
         {"id": "1", "source": "a", "destination": "oss://b/", "size": 1, "status": "WEIRD"}

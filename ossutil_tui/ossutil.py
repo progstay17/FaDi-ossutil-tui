@@ -5,8 +5,13 @@ import re
 from dataclasses import dataclass
 
 # ossutil 2.x includes object count, transferred size, and directory count
-# inside done:(...). Older versions / simpler output may only include objects.
-PROGRESS_RE = re.compile(r"done:\([^)]*\)\s*,\s*([\d.]+)\s*%", re.IGNORECASE)
+# inside done:(...). On resumed uploads it may also emit a skipped:(...) summary
+# between done:(...) and the percentage. Keep the percentage reported by ossutil;
+# do not derive a total from done/skipped until its semantics are independently verified.
+PROGRESS_RE = re.compile(
+    r"done:\([^)]*\)(?:\s+skipped:\([^)]*\))?\s*,\s*([\d.]+)\s*%",
+    re.IGNORECASE,
+)
 STAT_LINE_RE = re.compile(r"^\s*([A-Za-z0-9-]+)\s*:\s*(.+?)\s*$")
 
 MIN_PART_SIZE = 100 * 1024

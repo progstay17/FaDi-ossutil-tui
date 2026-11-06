@@ -91,6 +91,16 @@ def test_parse_progress_accepts_both_old_and_expanded_summaries_in_same_chunk():
     assert parse_progress(chunk) == 10.825
 
 
+def test_parse_progress_accepts_resumed_summary_with_skipped_objects():
+    line = (
+        "Upload... done:(206 objects,14.2 GiB,12 dirs) "
+        "skipped:(454 objects,31.513 GiB,23 dirs), "
+        "10.343%, avg 22.803 MiB/s"
+    )
+    # Preserve ossutil's reported percentage; do not infer its denominator.
+    assert parse_progress(line) == 10.343
+
+
 def test_parse_progress_returns_none_without_match():
     assert parse_progress("nothing useful here") is None
 
