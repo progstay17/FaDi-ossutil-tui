@@ -34,7 +34,7 @@ Screen { background: #0D1117; color: #E6EDF3; }
 #sidebar-brand { height: 3; color: #D4F53C; text-style: bold; }
 #sidebar-kicker { height: 1; color: #748191; margin-top: 1; }
 #nav-active { height: 3; padding: 1; color: #D4F53C; background: #242D24; border-left: tall #D4F53C; }
-#nav-item { height: 2; padding: 0 1; color: #AAB4C0; }
+#nav-item, .nav-item { height: 2; padding: 0 1; color: #AAB4C0; }
 #sidebar-rule { height: 1; color: #3A424D; margin-top: 1; }
 #connection-label { height: 1; color: #748191; margin-top: 1; }
 #sidebar-connection { height: auto; color: #D4F53C; }
@@ -512,8 +512,8 @@ class MainScreen(Screen):
                 yield Static("FaDi  /  OSS", id="sidebar-brand")
                 yield Static("WORKSPACE", id="sidebar-kicker")
                 yield Static("▸  OVERVIEW", id="nav-active")
-                yield Static("   UPLOAD QUEUE", id="nav-item")
-                yield Static("   BUCKET BROWSER", id="nav-item")
+                yield Static("   UPLOAD QUEUE", classes="nav-item")
+                yield Static("   BUCKET BROWSER", classes="nav-item")
                 yield Static("────────────────", id="sidebar-rule")
                 yield Static("CONNECTION", id="connection-label")
                 yield Static(id="sidebar-connection")
