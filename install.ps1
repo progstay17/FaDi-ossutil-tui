@@ -10,7 +10,7 @@
   Where the app lives. Default: %LOCALAPPDATA%\FaDi-OSS-TUI (your login, queue and logs live here too).
 
 .PARAMETER InstallOssutil
-  Also download ossutil 2.4.0 from Alibaba Cloud and verify its SHA-256 before using it.
+  Download ossutil 2.4.0 from Alibaba Cloud and verify its SHA-256. This is always done.
 
 .PARAMETER AddToPath
   Add <InstallDir>\bin to your user PATH so "fadi-oss-tui" works in any terminal.
@@ -24,7 +24,7 @@
 [CmdletBinding()]
 param(
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'FaDi-OSS-TUI'),
-    [switch]$InstallOssutil,
+    [switch]$InstallOssutil, # Legacy compatibility; ossutil is now always installed.
     [switch]$AddToPath,
     [switch]$NoShortcut,
     [string]$Python = ''
@@ -163,12 +163,9 @@ try {
     [IO.File]::WriteAllText($Launcher, $text, [Text.Encoding]::ASCII)
     [IO.File]::WriteAllText($Marker, "installed by install.ps1 on $(Get-Date -Format 's')`r`n", [Text.Encoding]::ASCII)
 
-    $ossutilPath = ''
-    if ($InstallOssutil) {
-        Write-Step "Downloading ossutil $OssutilVersion and checking its SHA-256"
-        $ossutilPath = Install-Ossutil
-        Invoke-Native { & $ossutilPath version } 'The downloaded ossutil does not run.'
-    }
+    Write-Step "Downloading ossutil $OssutilVersion and checking its SHA-256"
+    $ossutilPath = Install-Ossutil
+    Invoke-Native { & $ossutilPath version } 'The downloaded ossutil does not run.'
 
     if ($AddToPath) {
         Write-Step 'Adding the launcher folder to your user PATH'
@@ -194,8 +191,7 @@ try {
     Write-Host "  Start it:      Start Menu -> 'OSS Control Center'   or run:  $Launcher"
     if ($AddToPath) { Write-Host '  From a new terminal window you can simply type:  fadi-oss-tui' }
     Write-Host "  Your data:     $InstallDir  (login, queue, logs, checkpoints)"
-    if ($ossutilPath) { Write-Host "  ossutil:       $ossutilPath  (the login screen fills this in for you)" }
-    else { Write-Host '  ossutil:       not installed by this script. Re-run with -InstallOssutil, or enter the path of your own ossutil.exe at login.' }
+    Write-Host "  ossutil:       $ossutilPath  (managed automatically by the app)"
     Write-Host '  Tip:           Windows Terminal gives the best display.'
 }
 catch {
