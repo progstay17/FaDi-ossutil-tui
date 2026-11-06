@@ -103,7 +103,7 @@ def test_logout_removes_profile_but_keeps_queue_and_remembers_non_secret_default
     queue = json.loads(ctx.paths.state_file.read_text(encoding="utf-8"))
     assert len(queue["jobs"]) == 1
     defaults = ctx.login_defaults()
-    assert defaults.region == "ap-southeast-5" and defaults.bucket == "bucket-sandbox"
+    assert defaults.region == "ap-southeast-5" and defaults.bucket == "oss://bucket-sandbox/"
     assert defaults.access_key_id == ""
 
 
