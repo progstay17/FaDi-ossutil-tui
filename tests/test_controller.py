@@ -62,6 +62,15 @@ def test_prefix_scoped_directory_checks_stay_inside_root(tmp_path):
         run(controller.list_directory("oss://bucket-sandbox/"))
 
 
+def test_preexisting_queued_job_cannot_upload_outside_new_prefix(tmp_path):
+    controller = make_controller(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+    controller.default_root = "oss://bucket-sandbox/EGO/"
+    with pytest.raises(JobError, match="queued destination is outside the permitted prefix"):
+        run(controller.run(job.id))
+    assert job.status is JobStatus.PENDING
+
+
 def test_add_job_is_persisted(tmp_path):
     controller = make_controller(tmp_path)
     controller.add_job(str(make_source(tmp_path)), DEST)
