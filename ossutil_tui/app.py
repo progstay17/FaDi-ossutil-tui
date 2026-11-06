@@ -564,6 +564,7 @@ class MainScreen(Screen):
         profile = self.app.context.profile
         if profile is not None:
             header.append(f"     ● CONNECTED   {profile.bucket}", style="bold #D4F53C")
+            header.append(f"   KEY {profile.masked_key()}", style="#8793A1")
         self.last_header_text = header.plain
         self.query_one("#header", Static).update(header)
         self.query_one("#tabs", Static).update(Text("OPERATIONS   /   UPLOAD QUEUE   /   BUCKET BROWSER", style="#8B98A7"))
