@@ -372,7 +372,7 @@ class LoginScreen(Screen):
             yield Input(placeholder="AccessKey Secret (stored encrypted)", password=True, id="login-secret")
             yield Input(value=self._defaults.region, placeholder="ap-southeast-5", id="login-region")
             yield Input(
-                value=self._defaults.bucket, placeholder="bucket used to test the connection", id="login-bucket"
+                value=self._defaults.bucket, placeholder="bucket-name or oss://bucket/prefix/", id="login-bucket"
             )
             yield Static(Text(self._notice, style="#F2B84B"), id="login-status")
             with Horizontal(id="dialog-buttons"):
@@ -384,7 +384,7 @@ class LoginScreen(Screen):
             "login-key": "AccessKey ID",
             "login-secret": "AccessKey Secret",
             "login-region": "Region",
-            "login-bucket": "Bucket (connection test)",
+            "login-bucket": "Bucket / OSS URI (connection test)",
         }
         for widget_id, title in titles.items():
             self.query_one(f"#{widget_id}", Input).border_title = title
