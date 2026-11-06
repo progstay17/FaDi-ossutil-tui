@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Awaitable, Callable
 
 from .browser import (
-    EntryKind, ListPage, folder_of, normalize_dir_uri, parse_dir_listing, parse_du, similar_names, split_uri,
+    EntryKind, ListPage, folder_of, normalize_dir_uri, parse_dir_listing, parse_du, parse_ls_usage, similar_names, split_uri,
 )
 from .connection import classify_failure, run_command
 from .jobs import Job, JobStatus, JobStore, LiveStats, new_job, new_folder_job
@@ -464,10 +464,25 @@ class JobController:
         self._persist()
         if job.is_folder:
             try:
-                code, out, err = await self._run(self._ossutil_args("du", job.object_uri))
-                usage = parse_du(out)
-                if usage is None or code not in (0, 1):
-                    raise RuntimeError((err or out).strip()[-300:] or "could not read remote folder totals")
+                # Preferred: du provides a compact total, but also queries multipart
+                # uploads and can require extra RAM permissions.
+                du_code, du_out, du_err = await self._run(self._ossutil_args("du", job.object_uri))
+                usage = parse_du(du_out) if du_code in (0, 1) else None
+                method = "du"
+                if usage is None:
+                    # Fallback: recursive ls only needs oss:ListObjects and reports
+                    # completed objects with their sizes (no multipart enumeration).
+                    ls_code, ls_out, ls_err = await self._run(
+                        self._ossutil_args("ls", job.object_uri, "-r")
+                    )
+                    usage = parse_ls_usage(ls_out) if ls_code == 0 else None
+                    method = "ls"
+                    if usage is None:
+                        detail = (ls_err or ls_out or du_err or du_out).strip()[-300:]
+                        raise RuntimeError(
+                            f"du verification unavailable ({(du_err or du_out).strip()[-160:]}); "
+                            f"recursive ls fallback failed ({detail or f'exit {ls_code}'})"
+                        )
                 objects, total_bytes = usage
                 expected_objects = job.folder_files + job.folder_dirs + 1
                 if total_bytes != job.size:
@@ -479,8 +494,8 @@ class JobController:
                 else:
                     job.status = JobStatus.VERIFIED
                     job.message = (
-                        f"verified {job.folder_files} file(s), {job.folder_dirs + 1} folder marker(s), "
-                        f"{total_bytes} B"
+                        f"verified via {method}: {job.folder_files} file(s), "
+                        f"{job.folder_dirs + 1} folder marker(s), {total_bytes} B"
                     )
             except (RuntimeError, OSError, JobError) as exc:
                 job.status = JobStatus.VERIFY_FAILED
