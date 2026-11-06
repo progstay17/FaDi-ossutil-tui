@@ -62,7 +62,7 @@ def default_argv(settings: Settings, job: Job, part_size: int) -> list[str]:
         destination=job.object_uri if job.is_folder else job.destination,
         config_file=settings.config_file,
         region=settings.region,
-        checkpoint_dir=settings.checkpoint_dir,
+        checkpoint_dir=job.checkpoint_dir or settings.checkpoint_dir,
         part_size=part_size,
         recursive=job.is_folder,
         update=job.is_folder,
@@ -158,8 +158,11 @@ class JobController:
         except OSError:
             pass  # logging is best effort and must never break an upload
 
-    def _has_checkpoint(self) -> bool:
-        root = Path(self.settings.checkpoint_dir)
+    def _job_checkpoint_dir(self, job: Job) -> Path:
+        return Path(job.checkpoint_dir or self.settings.checkpoint_dir)
+
+    def _has_checkpoint(self, job: Job) -> bool:
+        root = self._job_checkpoint_dir(job)
         return root.is_dir() and any(p.is_file() for p in root.rglob("*"))
 
     # --- queue management ---------------------------------------------
@@ -215,6 +218,7 @@ class JobController:
         for existing in self.jobs:
             if existing.source == candidate.source and existing.object_uri == candidate.object_uri:
                 raise JobError("this file or folder is already queued for the same destination")
+        candidate.checkpoint_dir = str(Path(self.settings.checkpoint_dir) / candidate.id)
         self.jobs.append(candidate)
         self._persist()
         self._log(candidate, f"added {candidate.source} -> {candidate.object_uri} ({size} B)")
@@ -224,11 +228,49 @@ class JobController:
         job = self.get(job_id)
         if job.status in (JobStatus.UPLOADING, JobStatus.VERIFYING):
             raise JobError("job is running; pause it first")
-        if job.resumable and job.status in (JobStatus.PAUSED, JobStatus.FAILED):
-            raise JobError("job has a checkpoint; resume it first (discarding checkpoints comes later)")
         self.jobs.remove(job)
         self.live.pop(job.id, None)
         self._persist()
+
+    def discard_checkpoint(self, job_id: str) -> bool:
+        """Discard one job checkpoint; return True if a legacy shared folder was preserved."""
+        job = self.get(job_id)
+        if job.status in (JobStatus.UPLOADING, JobStatus.VERIFYING) or job.id in self._runners:
+            raise JobError("job is running; pause it before discarding its checkpoint")
+        if job.status not in (JobStatus.PAUSED, JobStatus.FAILED):
+            raise JobError("discard checkpoint is available only for PAUSED or FAILED jobs")
+
+        legacy_shared = job.checkpoint_dir is None
+        target = self._job_checkpoint_dir(job)
+        if not legacy_shared:
+            root = Path(self.settings.checkpoint_dir).resolve()
+            resolved = target.resolve()
+            if resolved == root or root not in resolved.parents:
+                raise JobError("refusing to delete a checkpoint directory outside this job")
+            try:
+                if target.exists():
+                    for item in sorted(target.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+                        if item.is_file() or item.is_symlink():
+                            item.unlink()
+                        elif item.is_dir():
+                            item.rmdir()
+                    target.rmdir()
+            except OSError as exc:
+                raise JobError(f"could not discard checkpoint: {exc}") from exc
+        else:
+            # Old versions shared one checkpoint folder. Preserve it because
+            # another queued job may still depend on its contents.
+            job.checkpoint_dir = str(Path(self.settings.checkpoint_dir) / job.id)
+
+        job.status = JobStatus.PENDING
+        job.percent = 0.0
+        job.resumable = False
+        job.remote_crc64 = None
+        job.message = "Checkpoint discarded; next upload starts from the beginning"
+        self.live.pop(job.id, None)
+        self._persist()
+        self._log(job, "checkpoint discarded")
+        return legacy_shared
 
     def preflight(self, job_id: str) -> PreflightInfo:
         job = self.get(job_id)
@@ -248,7 +290,7 @@ class JobController:
             part_size=part_size,
             parts=-(-job.size // part_size),
             region=region,
-            checkpoint_dir=self.settings.checkpoint_dir,
+            checkpoint_dir=str(self._job_checkpoint_dir(job)),
             command=subprocess.list2cmdline(argv),
             warnings=warnings,
             is_folder=job.is_folder,
@@ -418,7 +460,7 @@ class JobController:
             self._log(job, "upload finished")
         else:
             job.status = JobStatus.FAILED
-            job.resumable = self._has_checkpoint()
+            job.resumable = self._has_checkpoint(job)
             job.message = (
                 _last_meaningful_line(result.stderr_text)
                 or _last_meaningful_line(result.stdout_tail)

@@ -479,6 +479,31 @@ class LogoutScreen(ModalScreen[bool]):
     def action_cancel(self) -> None:
         self.dismiss(False)
 
+class DiscardCheckpointScreen(ModalScreen[bool]):
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    def __init__(self, job: Job) -> None:
+        super().__init__()
+        self._job = job
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="logout-dialog"):
+            yield Static(Text("DISCARD CHECKPOINT", style="bold #F2B84B"))
+            yield Static(
+                f"Discard the resume data for {self._job.name}?\n"
+                "The next upload starts from the beginning. Objects already uploaded to OSS are not deleted."
+            )
+            with Horizontal(id="dialog-buttons"):
+                yield Button("Discard checkpoint", id="confirm", variant="error")
+                yield Button("Cancel", id="cancel")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(event.button.id == "confirm")
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
+
+
 class MainScreen(Screen):
     BINDINGS = [
         Binding("a", "add_job", "Add"),
@@ -486,6 +511,7 @@ class MainScreen(Screen):
         Binding("s", "start_job", "Start"),
         Binding("p", "pause_job", "Pause"),
         Binding("r", "resume_job", "Resume"),
+        Binding("d", "discard_checkpoint", "Discard checkpoint"),
         Binding("v", "verify_job", "Verify"),
         Binding("x", "remove_job", "Remove"),
         Binding("l", "logout", "Logout"),
@@ -700,6 +726,31 @@ class MainScreen(Screen):
             self._toast("Select a PAUSED or FAILED job to resume.", "warning")
             return
         self._launch(self.app.controller.run(job.id))
+
+    def action_discard_checkpoint(self) -> None:
+        job = self._selected_job()
+        if job is None:
+            return
+        if job.status not in (JobStatus.PAUSED, JobStatus.FAILED):
+            self._toast("Select a PAUSED or FAILED job to discard its checkpoint.", "warning")
+            return
+        self.app.push_screen(
+            DiscardCheckpointScreen(job),
+            lambda confirmed: self._after_discard_checkpoint(job.id, bool(confirmed)),
+        )
+
+    def _after_discard_checkpoint(self, job_id: str, confirmed: bool) -> None:
+        if not confirmed:
+            return
+        try:
+            legacy_shared = self.app.controller.discard_checkpoint(job_id)
+        except JobError as exc:
+            self._toast(str(exc), "error")
+            return
+        if legacy_shared:
+            self._toast("Checkpoint detached. Legacy shared files were preserved to protect other jobs.")
+        else:
+            self._toast("Checkpoint discarded. The next upload starts from the beginning.")
 
     def action_pause_job(self) -> None:
         job = self._selected_job()

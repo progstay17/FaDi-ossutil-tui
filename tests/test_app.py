@@ -291,3 +291,26 @@ def test_add_dialog_accepts_a_local_folder(tmp_path):
             assert controller.jobs[0].folder_files == 1
 
     run(scenario())
+def test_discard_checkpoint_requires_confirmation_and_resets_job(tmp_path):
+    app, controller = make_app(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+    job.status = JobStatus.PAUSED
+    job.resumable = True
+
+    async def scenario():
+        async with app.run_test(size=SIZE) as pilot:
+            await pilot.pause()
+            await pilot.press("d")
+            await pilot.pause()
+            assert "DISCARD CHECKPOINT" in str(app.screen)
+            await pilot.press("escape")
+            await pilot.pause()
+            assert job.status is JobStatus.PAUSED
+            await pilot.press("d")
+            await pilot.pause()
+            app.screen.query_one("#confirm", Button).press()
+            await pilot.pause()
+            assert isinstance(app.screen, MainScreen)
+            assert job.status is JobStatus.PENDING and not job.resumable
+
+    run(scenario())

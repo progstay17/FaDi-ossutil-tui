@@ -203,8 +203,11 @@ def test_remove_rules(tmp_path):
             controller.remove(job.id)
         controller.pause(job.id)
         await task
-        with pytest.raises(JobError, match="checkpoint"):
-            controller.remove(job.id)
+        assert job.status is JobStatus.PAUSED
+        controller.discard_checkpoint(job.id)
+        assert job.status is JobStatus.PENDING
+        assert job.percent == 0 and not job.resumable
+        controller.remove(job.id)
 
     run(scenario())
 
@@ -423,3 +426,37 @@ def test_folder_upload_creates_root_marker_when_missing(tmp_path):
 
     assert job.status is JobStatus.VERIFIED
     assert any(call[1] == "mkdir" and call[2] == job.object_uri for call in calls)
+def test_discard_checkpoint_removes_only_selected_job_directory(tmp_path):
+    controller = make_controller(tmp_path)
+    first = controller.add_job(str(make_source(tmp_path, name="first.bin")), DEST)
+    second = controller.add_job(str(make_source(tmp_path, name="second.bin")), DEST)
+    from pathlib import Path
+    first_dir = Path(first.checkpoint_dir)
+    second_dir = Path(second.checkpoint_dir)
+    first_dir.mkdir(parents=True)
+    second_dir.mkdir(parents=True)
+    (first_dir / "state").write_text("first")
+    (second_dir / "state").write_text("second")
+    first.status = JobStatus.PAUSED
+    first.resumable = True
+
+    assert controller.discard_checkpoint(first.id) is False
+    assert not first_dir.exists()
+    assert (second_dir / "state").read_text() == "second"
+    assert first.status is JobStatus.PENDING and not first.resumable
+
+
+def test_discard_legacy_checkpoint_preserves_shared_directory(tmp_path):
+    controller = make_controller(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+    shared = tmp_path / "ck"
+    shared.mkdir()
+    (shared / "legacy-state").write_text("keep")
+    job.checkpoint_dir = None
+    job.status = JobStatus.PAUSED
+    job.resumable = True
+
+    assert controller.discard_checkpoint(job.id) is True
+    assert (shared / "legacy-state").read_text() == "keep"
+    assert job.checkpoint_dir == str(shared / job.id)
+    assert job.status is JobStatus.PENDING and not job.resumable
