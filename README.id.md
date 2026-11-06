@@ -10,7 +10,7 @@ Dibuat untuk upload besar (puluhan sampai ratusan GB) yang memakan waktu berjam-
 ## Yang sudah bisa
 
 - **Dark Operations Console.** Dashboard dengan navigasi samping, metrik antrean langsung, daftar upload, detail pekerjaan terpilih, dan ringkasan transfer. Tema charcoal dengan aksen lime, tetap sepenuhnya berjalan di terminal.
-- **Login sekali, tetap masuk.** Isi AccessKey, region, dan bucket yang sudah ada; aplikasi mengetes koneksi (hanya-baca) sebelum menyimpan. URI seperti `oss://nama-bucket/folder/` dinormalisasi ke root bucket untuk tes ini. Logout kapan saja dengan `L`.
+- **Login sekali, tetap masuk.** Isi AccessKey, region, dan bucket atau prefix yang diizinkan, misalnya `oss://nama-bucket/EGO/`. Aplikasi mengetes lokasi tersebut (hanya-baca), menjadikannya root workspace, dan membatasi browser serta tujuan upload agar tetap di dalam prefix itu. Logout kapan saja dengan `L`.
 - **Upload file besar** dengan jeda, lanjut (juga setelah aplikasi atau PC berhenti), kecepatan dan ETA langsung, serta pemeriksaan setelah upload.
 - **Menjelajah bucket** (folder dan file, paging, detail) dan memilih tujuan upload dari browser.
 - **Menangkap salah ketik di tujuan.** Kalau folder tujuan belum ada, dialog pre-flight memberi tahu dan menyarankan folder mirip yang sudah ada (misalnya `team-alpha-black` ketika kamu mengetik `team-alpah-black`).

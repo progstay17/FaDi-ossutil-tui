@@ -27,6 +27,8 @@ def test_valid_input_is_normalized(tmp_path):
     assert check.errors == []
     assert check.profile.region == "ap-southeast-5"
     assert check.profile.bucket == "bucket-sandbox"
+    assert check.profile.prefix == "some/prefix"
+    assert check.profile.root_uri == "oss://bucket-sandbox/some/prefix/"
     assert check.profile.exe.endswith("ossutil.exe") and '"' not in check.profile.exe
     assert check.secret == SECRET
 

@@ -35,6 +35,42 @@ def test_add_job_validates_input(tmp_path):
         controller.add_job(str(source), DEST)
 
 
+def test_add_job_cannot_escape_the_configured_prefix(tmp_path):
+    controller = make_controller(tmp_path)
+    controller.default_root = "oss://bucket-sandbox/EGO/"
+    source = make_source(tmp_path)
+    controller.add_job(str(source), "oss://bucket-sandbox/EGO/sub/")
+    other = make_source(tmp_path, name="outside.bin")
+    with pytest.raises(JobError, match="outside the permitted prefix"):
+        controller.add_job(str(other), "oss://bucket-sandbox/OTHER/")
+
+
+def test_prefix_scoped_directory_checks_stay_inside_root(tmp_path):
+    controller = make_controller(tmp_path)
+    controller.default_root = "oss://bucket-sandbox/EGO/"
+    requested = []
+
+    async def prefix_exists(uri):
+        requested.append(uri)
+        return True
+
+    controller.prefix_exists = prefix_exists
+    result = run(controller.check_prefix("oss://bucket-sandbox/EGO/new-folder/"))
+    assert result.exists
+    assert requested == ["oss://bucket-sandbox/EGO/new-folder/"]
+    with pytest.raises(JobError, match="outside the permitted prefix"):
+        run(controller.list_directory("oss://bucket-sandbox/"))
+
+
+def test_preexisting_queued_job_cannot_upload_outside_new_prefix(tmp_path):
+    controller = make_controller(tmp_path)
+    job = controller.add_job(str(make_source(tmp_path)), DEST)
+    controller.default_root = "oss://bucket-sandbox/EGO/"
+    with pytest.raises(JobError, match="queued destination is outside the permitted prefix"):
+        run(controller.run(job.id))
+    assert job.status is JobStatus.PENDING
+
+
 def test_add_job_is_persisted(tmp_path):
     controller = make_controller(tmp_path)
     controller.add_job(str(make_source(tmp_path)), DEST)

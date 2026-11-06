@@ -118,7 +118,7 @@ class AppContext:
     def activate(self, profile: Profile, secret: str) -> None:
         settings = self._build_settings(profile)
         controller = JobController(settings, JobStore(settings.state_file), env_fn=self._env)
-        controller.default_root = f"oss://{profile.bucket}/"
+        controller.default_root = profile.root_uri
         self.profile, self._secret, self.settings, self.controller = profile, secret, settings, controller
 
     def adopt(self, controller: JobController, settings: Settings, profile: Profile | None = None) -> None:
@@ -151,7 +151,7 @@ class AppContext:
         if self.controller is not None and self.controller.is_busy():
             raise JobError("An upload is running. Pause it first, then log out.")
         if self.profile is not None:
-            self._remembered = LoginDefaults(self.profile.exe, "", self.profile.region, self.profile.bucket)
+            self._remembered = LoginDefaults(self.profile.exe, "", self.profile.region, self.profile.root_uri)
         self.store.delete()
         if self.controller is not None:
             self.controller.set_on_change(None)
@@ -180,5 +180,5 @@ class AppContext:
             exe,
             saved.access_key_id if saved else "",
             saved.region if saved else self._remembered.region,
-            saved.bucket if saved else self._remembered.bucket,
+            saved.root_uri if saved else self._remembered.bucket,
         )

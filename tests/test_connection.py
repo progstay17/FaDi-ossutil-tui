@@ -69,6 +69,18 @@ def test_success_and_secret_never_in_argv():
     assert seen["env"]["OSS_ACCESS_KEY_SECRET"] == SECRET
 
 
+def test_connection_checks_the_supplied_prefix_not_bucket_root():
+    seen = {}
+
+    async def fake_exec(argv, env):
+        seen["argv"] = argv
+        return 0, "Object Number is: 1", ""
+
+    result = run(make_call(fake_exec, bucket="oss://bucket-sandbox/EGO/"))
+    assert result.ok
+    assert seen["argv"][2] == "oss://bucket-sandbox/EGO/"
+
+
 def test_failure_is_classified():
     async def fake_exec(argv, env):
         return 1, "", "Error Code: InvalidAccessKeyId"

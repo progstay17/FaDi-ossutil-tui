@@ -166,6 +166,12 @@ class JobController:
             raise JobError(f"source file not found: {source}")
         if not _DEST_RE.match(destination):
             raise JobError("destination must look like oss://bucket/prefix/ (lowercase bucket name)")
+        root = self._dir(self.default_root) if self.default_root else ""
+        if root:
+            try:
+                self._assert_within_root(folder_of(destination))
+            except ValueError as exc:
+                raise JobError(f"Not a valid oss:// address: {destination!r}") from exc
         size = path.stat().st_size
         if size <= 0:
             raise JobError("source file is empty")
@@ -232,10 +238,22 @@ class JobController:
         except ValueError as exc:
             raise JobError(f"Not a valid oss:// address: {uri!r}") from exc
 
+    def _assert_within_root(self, uri: str) -> str:
+        """Normalize a directory URI and reject paths outside the configured workspace."""
+        target = self._dir(uri)
+        if not self.default_root:
+            return target
+        root = self._dir(self.default_root)
+        root_bucket, root_key = split_uri(root)
+        target_bucket, target_key = split_uri(target)
+        if target_bucket != root_bucket or (root_key and target_key != root_key and not target_key.startswith(root_key)):
+            raise JobError(f"location is outside the permitted prefix: {root}")
+        return target
+
     async def list_directory(
         self, prefix_uri: str, *, start_after_key: str | None = None, limit: int = 200
     ) -> ListPage:
-        prefix = self._dir(prefix_uri)
+        prefix = self._assert_within_root(prefix_uri)
         extra = ["--start-after", start_after_key] if start_after_key else []
         code, out, err = await self._run(
             self._ossutil_args("ls", prefix, "-d", "--limited-num", str(limit), *extra)
@@ -250,12 +268,15 @@ class JobController:
 
     async def check_prefix(self, folder_uri: str) -> PrefixCheck:
         """Does the folder exist? If not, where does the path break, and what similar names exist there?"""
-        folder = self._dir(folder_uri)
+        folder = self._assert_within_root(folder_uri)
         bucket, key = split_uri(folder)
-        parts = [part for part in key.split("/") if part]
-        ancestor = f"oss://{bucket}/"
+        root = self._dir(self.default_root) if self.default_root else f"oss://{bucket}/"
+        _, root_key = split_uri(root)
+        relative_key = key[len(root_key):]
+        parts = [part for part in relative_key.split("/") if part]
+        ancestor = root
         for depth, part in enumerate(parts, start=1):
-            current = f"oss://{bucket}/" + "/".join(parts[:depth]) + "/"
+            current = root + "/".join(parts[:depth]) + "/"
             if not await self.prefix_exists(current):
                 try:
                     siblings = (await self.list_directory(ancestor, limit=1000)).entries
@@ -300,6 +321,11 @@ class JobController:
     # --- running -------------------------------------------------------
     async def run(self, job_id: str) -> None:
         job = self.get(job_id)
+        if self.default_root:
+            try:
+                self._assert_within_root(folder_of(job.destination))
+            except (ValueError, JobError) as exc:
+                raise JobError(f"queued destination is outside the permitted prefix: {self.default_root}") from exc
         if job.status not in (JobStatus.PENDING, JobStatus.PAUSED, JobStatus.FAILED):
             raise JobError(f"cannot start a job that is {job.status.value}")
         if self._runners:
