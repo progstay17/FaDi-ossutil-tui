@@ -1,0 +1,39 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "oss:ListObjects"
+      ],
+      "Resource": [
+        "acs:oss:*:*:kunbyte-indonisa-data"
+      ],
+      "Condition": {
+        "StringLike": {
+          "oss:Prefix": [
+            "EGO/*"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "oss:ListMultipartUploads"
+      ],
+      "Resource": [
+        "acs:oss:*:*:kunbyte-indonisa-data"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "oss:ListParts"
+      ],
+      "Resource": [
+        "acs:oss:*:*:kunbyte-indonisa-data/EGO/*"
+      ]
+    }
+  ]
+}
