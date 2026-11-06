@@ -570,7 +570,7 @@ class MainScreen(Screen):
         self.query_one("#workspace-title", Static).update(Text("OPERATIONS OVERVIEW", style="bold #E6EDF3"))
         if profile is not None:
             self.query_one("#sidebar-connection", Static).update(
-                Text(f"● {profile.bucket}\\n{profile.masked_key()}", style="#D4F53C")
+                Text(f"● {profile.bucket}\n{profile.masked_key()}", style="#D4F53C")
             )
         else:
             self.query_one("#sidebar-connection", Static).update(Text("● OFFLINE", style="#F2B84B"))
@@ -587,7 +587,7 @@ class MainScreen(Screen):
         )
         for widget_id, label, value, color in metrics:
             card = Text()
-            card.append(label + "\\n", style="#8793A1")
+            card.append(label + "\n", style="#8793A1")
             card.append(value, style=f"bold {color}")
             self.query_one(widget_id, Static).update(card)
 
