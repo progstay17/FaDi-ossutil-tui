@@ -70,13 +70,17 @@ def test_undecryptable_secret_returns_a_notice_and_stays_logged_out(tmp_path):
     assert broken.login_defaults().access_key_id == "FAKEKEYID12345678"
 
 
-def test_moved_ossutil_is_reported_on_resume(tmp_path):
+def test_moved_ossutil_falls_back_to_the_bundled_binary_for_relogin(tmp_path):
     ctx, exe = make_ctx(tmp_path)
     ctx.save_login(make_profile(exe), SECRET)
     exe.unlink()
+    bundled = ctx.paths.bundled_ossutil
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("bundled")
     again = AppContext(AppPaths(tmp_path / "app"), ProfileStore(ctx.paths.profile_file, FakeProtector()))
     assert "ossutil executable not found" in again.resume_session()
     assert not again.logged_in
+    assert again.login_defaults().exe == str(bundled)
 
 
 def test_failed_activation_does_not_leave_a_half_saved_profile(tmp_path):
@@ -119,9 +123,12 @@ def test_login_defaults_use_the_ossutil_installed_next_to_the_app(tmp_path):
     assert ctx.login_defaults().exe == str(paths.bundled_ossutil)
 
 
-def test_an_explicit_exe_hint_beats_the_bundled_one(tmp_path):
+def test_a_valid_explicit_exe_hint_beats_the_bundled_one(tmp_path):
     paths = AppPaths(tmp_path / "app")
     paths.bundled_ossutil.parent.mkdir(parents=True)
     paths.bundled_ossutil.write_text("x")
-    ctx = AppContext(paths, ProfileStore(paths.profile_file, FakeProtector()), exe_hint=r"C:\tools\ossutil.exe")
-    assert ctx.login_defaults().exe == r"C:\tools\ossutil.exe"
+    explicit = tmp_path / "custom" / "ossutil.exe"
+    explicit.parent.mkdir()
+    explicit.write_text("custom")
+    ctx = AppContext(paths, ProfileStore(paths.profile_file, FakeProtector()), exe_hint=str(explicit))
+    assert ctx.login_defaults().exe == str(explicit)
