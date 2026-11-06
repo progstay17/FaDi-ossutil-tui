@@ -29,12 +29,11 @@ Belum ada: upload folder atau batch, hapus / ganti nama / pindah, beberapa profi
 Klik dua kali `install.cmd`, atau dari terminal di folder ini:
 
 ```powershell
-.\install.cmd -InstallOssutil -AddToPath
+.\install.cmd -AddToPath
 ```
 
 | Opsi | Efek |
 |---|---|
-| `-InstallOssutil` | Unduh ossutil 2.4.0 ke folder aplikasi dan verifikasi SHA-256-nya |
 | `-AddToPath` | Tambahkan folder launcher ke PATH pengguna, sehingga `fadi-oss-tui` jalan di terminal mana pun |
 | `-NoShortcut` | Jangan buat pintasan Start Menu |
 | `-InstallDir <path>` | Pasang di tempat lain (default `%LOCALAPPDATA%\FaDi-OSS-TUI`) |
