@@ -55,7 +55,8 @@ def test_starts_on_login_when_there_is_no_profile(tmp_path):
         async with app.run_test(size=SIZE) as pilot:
             await pilot.pause()
             assert isinstance(app.screen, LoginScreen)
-            assert app.screen.query_one("#login-exe", Input).value.endswith("ossutil.exe")
+            assert not app.screen.query("#login-exe")
+            assert app.screen.query_one("#login-key", Input).has_focus
             assert app.screen.query_one("#login-secret", Input).password is True
             login = app.screen.query_one("#login", Button)
             quit_button = app.screen.query_one("#quit", Button)
