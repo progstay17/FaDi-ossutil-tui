@@ -281,6 +281,7 @@ class JobController:
 
         job.status = JobStatus.PENDING
         job.percent = 0.0
+        job.elapsed_seconds = 0.0
         job.resumable = False
         job.remote_crc64 = None
         job.message = "Checkpoint discarded; next upload starts from the beginning"
@@ -434,7 +435,8 @@ class JobController:
 
         part_size = choose_part_size(job.size, self.settings.part_size)
         argv = self._argv_fn(self.settings, job, part_size)
-        live = LiveStats(last_activity=self._clock())
+        started_at = self._clock()
+        live = LiveStats(last_activity=started_at, started_at=started_at)
         self.live[job.id] = live
 
         def on_activity() -> None:
@@ -492,6 +494,10 @@ class JobController:
             activity_task.cancel()
             await asyncio.gather(activity_task, return_exceptions=True)
             self._runners.pop(job.id, None)
+
+        if live.started_at is not None:
+            job.elapsed_seconds += max(0.0, self._clock() - live.started_at)
+            live.started_at = None
 
         if result is None:
             job.status = JobStatus.FAILED
