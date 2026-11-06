@@ -33,6 +33,18 @@ def test_detail_while_uploading_shows_speed_and_eta():
     assert "256 x 4.00 MB" in plain
 
 
+def test_detail_shows_live_elapsed_timer_and_keeps_elapsed_when_paused():
+    job = make_job(JobStatus.UPLOADING, percent=50.0)
+    job.elapsed_seconds = 65.0
+    live = LiveStats(started_at=100.0, last_activity=100.0)
+    plain = render_detail(job, live, part_size=4 * 1024**2, now=191.0).plain
+    assert "Elapsed    00:02:36" in plain
+
+    job.status = JobStatus.PAUSED
+    plain = render_detail(job, None, part_size=4 * 1024**2, now=300.0).plain
+    assert "Elapsed    00:01:05" in plain
+
+
 def test_detail_waits_for_activity_timeout_before_marking_stalled():
     job = make_job(JobStatus.UPLOADING, percent=50.0)
     live = LiveStats(speed=1.0, eta=5.0, last_event=100.0, last_activity=100.0)
